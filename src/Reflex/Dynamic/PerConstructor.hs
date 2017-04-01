@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE PolyKinds                  #-}
@@ -10,7 +9,6 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
---{-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ConstraintKinds            #-}
 module Reflex.Dynamic.PerConstructor
   (
@@ -143,7 +141,7 @@ dynMBuildableToConWidgets::forall t m a.( Reflex t
 dynMBuildableToConWidgets = dynMaybeToConWidgets widgetFieldsAndSequence where
   widgetFieldsAndSequence =
     let buildC = Proxy :: Proxy (DynMBuildable t m)
-        sListIC = Proxy :: Proxy (SListI)
+        sListIC = Proxy :: Proxy SListI
     in hcliftA sListIC (Comp . sequence_NP) . unPOP . hcliftA buildC (Compose . dynMBuild)
 
 
