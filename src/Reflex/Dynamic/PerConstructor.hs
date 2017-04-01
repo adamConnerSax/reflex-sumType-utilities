@@ -88,7 +88,7 @@ data ConWidget t m a = ConWidget { conName::ConstructorName, switchedTo::Event t
 class DynMBuildable t m a where
   dynMBuild::DynMaybe t a -> m (DynMaybe t a)
 
--- This constraint means that for each type 'b' in a field of a constructor of 'a', b must satisfy 'DynBuildable t m b'
+-- This constraint means that for each type 'b' in a field of a constructor of 'a', b must satisfy 'DynMBuildable t m b'
 type AllDynMBuildable t m a = (All2 (DynMBuildable t m) (Code a))
 
 type MapAndSequenceDynMaybeFields t m a = MapFieldsAndSequence (DynMaybe t) (Compose m (DynMaybe t)) (Code a)
