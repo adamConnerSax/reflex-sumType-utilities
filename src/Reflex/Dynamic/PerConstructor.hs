@@ -49,6 +49,7 @@ import           Reflex                      (Dynamic, Event, Reflex
 
 type DynMaybe t = Compose (Dynamic t) Maybe
 
+-- These events only fire if the corresponding constructor value changes.  They do not fire on changes to other constructors.
 dynamicToEventList::(Reflex t, Generic a)=>Dynamic t a -> [Event t a]
 dynamicToEventList = functorToPerConstructorList (hmap dynMaybeToEvent)
 
@@ -71,16 +72,23 @@ dynMaybeToNamedEventList dynA =
 dynMaybeMaybeToEvent::forall a t (f :: k -> *).Reflex t=>((DynMaybe t :.: Maybe) :.: f) a -> (Event t :.: f) a
 dynMaybeMaybeToEvent = Comp . fmapMaybe join . updated . getCompose . unComp . unComp
 
+-- utility which comes in handy for using the lists above in a control
 whichFired::Reflex t=>[Event t a]->Event t Int
 whichFired = leftmost . zipWith (<$) [0..]
 
--- now for widget building
+-- widget building
+-- given an applicative m (e.g., a DomBuilder or MonadHold), and a function build::DynMaybe t a -> m (DynMaybe t a) for all types in the fields of b
+-- we can take a Dynamic t b (or DynMaybe t b), apply the build function at each field of each constructor and get the resulting widgets along with constructor names
+-- and (pure) events to simplify switching on input changes.
+-- If all you want is the Event with the current widget (based on the input), you can use the XXXToWidgetEvent version.
+
 
 data ConWidget t m a = ConWidget { conName::ConstructorName, switchedTo::Event t a, widget::m (DynMaybe t a) }
 
 class DynMBuildable t m a where
   dynMBuild::DynMaybe t a -> m (DynMaybe t a)
 
+-- This constraint means that for each type 'b' in a field of a constructor of 'a', b must satisfy 'DynBuildable t m b'
 type AllDynMBuildable t m a = (All2 (DynMBuildable t m) (Code a))
 
 type MapAndSequenceDynMaybeFields t m a = MapFieldsAndSequence (DynMaybe t) (Compose m (DynMaybe t)) (Code a)
@@ -120,7 +128,7 @@ dynMaybeToWidgetEvent mapAndS dynMA =
   in leftmost $ f <$> conWidgets
 
 
--- specialized to the DynMBuildable case
+-- specialized to the DynMBuildable case.  Derive an instance of DynMBuildable using your build function and these functions will do the rest.
 dynMBuildableToConWidgets::forall t m a.( Reflex t
                                         , Generic a
                                         , HasDatatypeInfo a
