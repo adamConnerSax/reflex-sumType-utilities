@@ -1,13 +1,7 @@
-{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE PolyKinds                  #-}
-{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE ConstraintKinds            #-}
 module Reflex.Dynamic.PerConstructor
@@ -32,23 +26,26 @@ module Reflex.Dynamic.PerConstructor
   ) where
 
 import           Control.Monad               (join)
-import           Data.Functor.Compose
-import           Data.Functor.Identity       (runIdentity)
+import           Data.Functor.Compose        (Compose (Compose,getCompose))
 
-
-import           Generics.SOP                (All2, Code, Generic, hsequence, unPOP, hcliftA,
-                                              HasDatatypeInfo, SListI, SListI2, hmap, Proxy (Proxy))
+import           Generics.SOP                (HasDatatypeInfo, Code, Generic, ConstructorName,
+                                              All2, (:.:)(..), unComp, 
+                                              hsequence, hcliftA, hmap, unPOP, 
+                                              SListI, Proxy (Proxy))
 import           Generics.SOP.NP             (NP, sequence'_NP, sequence_NP)
-import qualified Generics.SOP.Dict           as GSD
 
 
-import           Generics.SOP.DMapUtilities
-import           Generics.SOP.PerConstructor
+import           Generics.SOP.PerConstructor (functorToPerConstructorList
+                                             , functorDoPerConstructorWithNames
+                                             , constructorNameList
+                                             , MapFieldsAndSequence
+                                             , NatAt)
 
-import           Reflex                      (Dynamic, Event, Reflex,
-                                              distributeDMapOverDynPure,
-                                              fmapMaybe, leftmost, updated)
+import           Reflex                      (Dynamic, Event, Reflex
+                                             , fmapMaybe, leftmost, updated)
 
+
+-- pure
 
 type DynMaybe t = Compose (Dynamic t) Maybe
 
@@ -77,24 +74,16 @@ dynMaybeMaybeToEvent = Comp . fmapMaybe join . updated . getCompose . unComp . u
 whichFired::Reflex t=>[Event t a]->Event t Int
 whichFired = leftmost . zipWith (<$) [0..]
 
--- now for widget building/holding
+-- now for widget building
 
 data ConWidget t m a = ConWidget { conName::ConstructorName, switchedTo::Event t a, widget::m (DynMaybe t a) }
 
 class DynMBuildable t m a where
   dynMBuild::DynMaybe t a -> m (DynMaybe t a)
 
-{-
-instance (Functor m, DynMBuildable t m a)=>NatAt (DynMaybe t) (Compose m (DynMaybe t)) a where
-  eta = Compose . dynMBuild
--}
-
 type AllDynMBuildable t m a = (All2 (DynMBuildable t m) (Code a))
 
 type MapAndSequenceDynMaybeFields t m a = MapFieldsAndSequence (DynMaybe t) (Compose m (DynMaybe t)) (Code a)
-
---fixMSDMF::MapAndSequenceDynMaybeFields t m a -> MapFieldsAndSequence (Dynamic t :.: Maybe) (Compose m (DynMaybe t)) (Code a)
---fixMSDMF x = x . hmap (Compose . unComp)
 
 dynamicToConWidgets::(Reflex t, Generic a,HasDatatypeInfo a, Applicative m)
   =>MapAndSequenceDynMaybeFields t m a->Dynamic t a-> [ConWidget t m a]
