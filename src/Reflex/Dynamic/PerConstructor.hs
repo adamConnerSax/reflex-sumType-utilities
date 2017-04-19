@@ -31,7 +31,7 @@ import           Data.Functor.Compose        (Compose (Compose,getCompose))
 import           Generics.SOP                (HasDatatypeInfo, Code, Generic, ConstructorName,
                                               All2, (:.:)(..), unComp, 
                                               hsequence, hcliftA, hmap, unPOP, 
-                                              SListI, Proxy (Proxy))
+                                              SListI, Proxy (Proxy),I)
 import           Generics.SOP.NP             (NP, sequence'_NP, sequence_NP)
 
 
@@ -40,9 +40,10 @@ import           Generics.SOP.PerConstructor (functorToPerConstructorList
                                              , constructorNameList
                                              , MapFieldsAndSequence
                                              , NatAt)
+import           Generics.SOP.DMapUtilities (npSequenceViaDMap)
 
 import           Reflex                      (Dynamic, Event, Reflex
-                                             , fmapMaybe, leftmost, updated)
+                                             , fmapMaybe, leftmost, updated, distributeDMapOverDynPure)
 
 
 -- pure
@@ -127,6 +128,9 @@ dynMaybeToWidgetEvent mapAndS dynMA =
       f (ConWidget _ ev w) = w <$ ev
   in leftmost $ f <$> conWidgets
 
+-- this uses distributeDMapOverDynPure to sequence the Dynamic.  At the cost of three sequences instead of one.
+sequenceViaDMap::(Reflex t, Applicative m, SListI xs)=>NP (m :.: (DynMaybe t)) xs -> (Compose m (DynMaybe t)) (NP I xs)
+sequenceViaDMap =  Compose . fmap (Compose . fmap hsequence . npSequenceViaDMap distributeDMapOverDynPure . hmap (Comp . getCompose)) . sequence'_NP
 
 -- specialized to the DynMBuildable case.  Derive an instance of DynMBuildable using your build function and these functions will do the rest.
 dynMBuildableToConWidgets::forall t m a.( Reflex t
@@ -139,7 +143,7 @@ dynMBuildableToConWidgets = dynMaybeToConWidgets widgetFieldsAndSequence where
   widgetFieldsAndSequence =
     let buildC = Proxy :: Proxy (DynMBuildable t m)
         sListIC = Proxy :: Proxy SListI
-    in hcliftA sListIC (Comp . sequence_NP) . unPOP . hcliftA buildC (Compose . dynMBuild)
+    in hcliftA sListIC (Comp . sequenceViaDMap) . unPOP . hcliftA buildC (Comp . dynMBuild)
 
 
 
