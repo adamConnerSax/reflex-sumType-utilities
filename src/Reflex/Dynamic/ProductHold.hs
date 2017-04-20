@@ -31,17 +31,17 @@ import           Reflex                      (Dynamic, Event, Reflex
 import Reflex.Dynamic.PerConstructor (DynMaybe,DynMBuildable(..),AllDynMBuildable)
 
 
-joinMaybes::Reflex t=> (DynMaybe t :.: Maybe) a -> DynMaybe t a
-joinMaybes = Compose . fmap join . getCompose . unComp
+joinMaybes::(Eq a, Reflex t)=> (DynMaybe t :.: Maybe) a -> DynMaybe t a
+joinMaybes = Compose . uniqDyn . fmap join . getCompose . unComp
 
-reComposeAndUniqDynMaybe::(Reflex t, Eq a)=>DynMaybe t a -> (Dynamic t :.: Maybe) a
-reComposeAndUniqDynMaybe = Comp . uniqDyn . getCompose
+reComposeDynMaybe::Reflex t=>DynMaybe t a -> (Dynamic t :.: Maybe) a
+reComposeDynMaybe = Comp . getCompose
 
-widgetAndUniq::(Eq a, Reflex t, Functor m, DynMBuildable t m a) => (DynMaybe t :.: Maybe) a -> (m :.: Dynamic t :.: Maybe) a
-widgetAndUniq = Comp . fmap reComposeAndUniqDynMaybe . dynMBuild . joinMaybes 
+widgetWithUniq::(Reflex t, Eq a, Functor m, DynMBuildable t m a) => (DynMaybe t :.: Maybe) a -> (m :.: Dynamic t :.: Maybe) a
+widgetWithUniq = Comp . fmap reComposeDynMaybe . dynMBuild . joinMaybes 
 
-widgetAndUniq'::(Reflex t, Functor m, (And Eq (DynMBuildable t m)) a) => (DynMaybe t :.: Maybe) a -> (m :.: Dynamic t :.: Maybe) a
-widgetAndUniq' = widgetAndUniq
+widgetWithUniq'::(Reflex t, Functor m, (And Eq (DynMBuildable t m)) a) => (DynMaybe t :.: Maybe) a -> (m :.: Dynamic t :.: Maybe) a
+widgetWithUniq' = widgetWithUniq
 
 doSequencing::(Reflex t, SListI xs, Applicative m)=>NP (m :.: Dynamic t :.: Maybe) xs -> (m :.: Dynamic t :.: Maybe) (NP I xs)
 doSequencing = Comp . fmap (Comp . fmap hsequence . npSequenceViaDMap distributeDMapOverDynPure) . sequence'_NP
@@ -51,28 +51,28 @@ reCompose = fmap (Compose . unComp) . unComp
 
 -- This is safe in the sense that if you give it a sum-type, you get back a widget per constructor instead of ignoring 
 -- There is a lot of constraint massaging in there.  I think there's an easier way but I tried a few things...
-safeEqProduct::forall a t m.(Generic a
-                            , All2 Eq (Code a)
-                            , AllDynMBuildable t m a
-                            , Reflex t
-                            , Applicative m)
+buildSafeEqProduct::forall a t m.(Generic a
+                                 , All2 Eq (Code a)
+                                 , AllDynMBuildable t m a
+                                 , Reflex t
+                                 , Applicative m)
   =>DynMaybe t a->[m (DynMaybe t a)]
-safeEqProduct =
+buildSafeEqProduct =
   let slistIC = Proxy :: Proxy SListI
       eqDict = Dict :: Dict (All2 Eq) (Code a)
       dmbDict = Dict :: Dict (All2 (DynMBuildable t m)) (Code a)
       eqAnddmbDict = zipAll2 eqDict dmbDict
       eqAnddmbPOP = unAll_POP eqAnddmbDict
       hmapWidgetAndUniq::POP (DynMaybe t :.: Maybe) (Code a) -> POP (m :.: Dynamic t :.: Maybe) (Code a)
-      hmapWidgetAndUniq = hliftA2  (\c x -> withDict c widgetAndUniq' x) eqAnddmbPOP
+      hmapWidgetAndUniq = hliftA2  (\c x -> withDict c widgetWithUniq' x) eqAnddmbPOP
   in fmap reCompose . hcollapse . reconstructA . hcmap slistIC (Comp . doSequencing) . unPOP . hmapWidgetAndUniq . distributeToFields . reAssociateNP . functorToNP
 
 -- NB: This assumes that the input has only one constructor.  It does not check!
 -- but we know that any type has at least one constructor.  So it should never crash on an empty list
-unsafeEqProduct::(Generic a
-                 , All2 Eq (Code a)
-                 , AllDynMBuildable t m a
-                 , Reflex t
-                 , Applicative m)
+buildUnsafeEqProduct::(Generic a
+                      , All2 Eq (Code a)
+                      , AllDynMBuildable t m a
+                      , Reflex t
+                      , Applicative m)
   =>DynMaybe t a->m (DynMaybe t a)
-unsafeEqProduct = head . safeEqProduct
+buildUnsafeEqProduct = head . buildSafeEqProduct
