@@ -12,7 +12,8 @@ import           Control.Monad               (join)
 import           Generics.SOP                (Code, Generic,
                                               All2, (:.:)(..), unComp, 
                                               hsequence, hcliftA, hmap, POP, unPOP, 
-                                              SListI, hcollapse, I, Proxy(..),hcmap, And,hliftA2)
+                                              SListI,SListI2,  hcollapse, I, Proxy(..),hcmap, And, hliftA2, type (-.->)(..)
+                                             ,hap, hpure, hcpure)
 import           Generics.SOP.NP             (NP, sequence'_NP, sequence_NP)
 import           Generics.SOP.Dict           (Dict(..),withDict,zipAll2,unAll_POP)
 
@@ -67,6 +68,25 @@ buildSafeEqProduct =
       hmapWidgetAndUniq = hliftA2  (\c x -> withDict c widgetWithUniq' x) eqAnddmbPOP
   in fmap reCompose . hcollapse . reconstructA . hcmap slistIC (Comp . doSequencing) . unPOP . hmapWidgetAndUniq . distributeToFields . reAssociateNP . functorToNP
 
+
+makeDynMBuildPOP::(SListI2 xss, All2 (DynMBuildable t m) xss, Functor m)=>POP (Dynamic t :.: Maybe -.-> m :.: Dynamic t :.: Maybe) xss
+makeDynMBuildPOP =
+  let dmbC = Proxy :: Proxy (All2 (DynMBuildable t m))
+  in hcpure dmbC $ Fn (Comp . fmap (Comp . getCompose) . dynMBuild . Compose . unComp) 
+
+buildSafeEqProduct'::forall a t m.(Generic a
+                                 , All2 Eq (Code a)
+                                 , Reflex t
+                                 , Applicative m)
+  =>POP (Dynamic t :.: Maybe -.-> m :.: Dynamic t :.: Maybe) (Code a) -> DynMaybe t a->[m (DynMaybe t a)]
+buildSafeEqProduct' buildFns =
+  let slistIC = Proxy :: Proxy SListI
+      eqC = Proxy :: Proxy Eq
+      hmapWidgetAndUniq::POP (DynMaybe t :.: Maybe) (Code a) -> POP (m :.: Dynamic t :.: Maybe) (Code a)
+      hmapWidgetAndUniq = hap buildFns . hcmap eqC (Comp . getCompose . joinMaybes)
+  in fmap reCompose . hcollapse . reconstructA . hcmap slistIC (Comp . doSequencing) . unPOP . hmapWidgetAndUniq . distributeToFields . reAssociateNP . functorToNP
+
+
 -- NB: This assumes that the input has only one constructor.  It does not check!
 -- but we know that any type has at least one constructor.  So it should never crash on an empty list
 buildUnsafeEqProduct::(Generic a
@@ -76,3 +96,4 @@ buildUnsafeEqProduct::(Generic a
                       , Applicative m)
   =>DynMaybe t a->m (DynMaybe t a)
 buildUnsafeEqProduct = head . buildSafeEqProduct
+
