@@ -14,7 +14,7 @@ import           Generics.SOP                (Code, Generic,
                                               hsequence, hcliftA, hmap, POP, unPOP, 
                                               SListI,SListI2,  hcollapse, I, Proxy(..),hcmap, And, hliftA2, type (-.->)(..)
                                              ,hap, hpure, hcpure)
-import           Generics.SOP.NP             (NP, sequence'_NP, sequence_NP)
+import           Generics.SOP.NP             (NP, sequence'_NP, sequence_NP, cpure_POP)
 import           Generics.SOP.Dict           (Dict(..),withDict,zipAll2,unAll_POP)
 
 import           Generics.SOP.PerConstructor (functorToPerConstructorList
@@ -68,11 +68,13 @@ buildSafeEqProduct =
       hmapWidgetAndUniq = hliftA2  (\c x -> withDict c widgetWithUniq' x) eqAnddmbPOP
   in fmap reCompose . hcollapse . reconstructA . hcmap slistIC (Comp . doSequencing) . unPOP . hmapWidgetAndUniq . distributeToFields . reAssociateNP . functorToNP
 
-
-makeDynMBuildPOP::(SListI2 xss, All2 (DynMBuildable t m) xss, Functor m)=>POP (Dynamic t :.: Maybe -.-> m :.: Dynamic t :.: Maybe) xss
+-- This doesn't work.  Some sort of kind issue.
+{-
+makeDynMBuildPOP::(SListI2 xss,Reflex t, All2 (DynMBuildable t m) xss, Functor m)=>POP ((Dynamic t :.: Maybe) -.-> (m :.: Dynamic t :.: Maybe)) xss
 makeDynMBuildPOP =
   let dmbC = Proxy :: Proxy (All2 (DynMBuildable t m))
-  in hcpure dmbC $ Fn (Comp . fmap (Comp . getCompose) . dynMBuild . Compose . unComp) 
+  in cpure_POP dmbC $ Fn (Comp . fmap (Comp . getCompose) . dynMBuild  . Compose . unComp)
+-}
 
 buildSafeEqProduct'::forall a t m.(Generic a
                                  , All2 Eq (Code a)
