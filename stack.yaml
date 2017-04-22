@@ -6,7 +6,7 @@ resolver: lts-8.6
 packages:
 - location:
     git: https://github.com/adamConnerSax/perConstructor-sop
-    commit: "fc6abddfa236bac1f9742e95128f31c93d1abbb8"
+    commit: "6b66dbaa73a6020f994b48b98dab72810a75c85c"
   extra-dep: true
 - location:
     git: https://github.com/ghcjs/jsaddle

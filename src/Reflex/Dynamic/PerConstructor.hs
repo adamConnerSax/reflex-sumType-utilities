@@ -41,7 +41,8 @@ import           Generics.SOP.PerConstructor (functorToPerConstructorList
                                              , functorDoPerConstructorWithNames
                                              , constructorNameList
                                              , MapFieldsAndSequence
-                                             , NatAt)
+                                             , Dict(..)
+                                             , mapFieldsFromConstraintAndCustomSequence)
 import           Generics.SOP.DMapUtilities (npSequenceViaDMap)
 
 import           Reflex                      (Dynamic, Event, Reflex
@@ -123,10 +124,9 @@ dynMaybeToWidgetEvent mapAndS dynMA =
   in leftmost $ f <$> conWidgets
 
 -- this uses distributeDMapOverDynPure to sequence the Dynamic.  At the cost of three sequences instead of one.
-sequenceViaDMap::(Reflex t, Applicative m, SListI xs)=>NP (m :.: (DynMaybe t)) xs -> (Compose m (DynMaybe t)) (NP I xs)
-sequenceViaDMap =  Compose . fmap (Compose . fmap hsequence . npSequenceViaDMap distributeDMapOverDynPure . hmap (Comp . getCompose)) . sequence'_NP
-
--- Reuse/redo the work in EqProduct to generalize the builder function and allow externally defined constraints to be applied.
+-- this also seems like it may have more traversals over the structure (4) than we need.  Someday, an optimization pass.
+sequenceViaDMap::(Reflex t, Applicative m, SListI xs)=>NP (Compose m (DynMaybe t)) xs -> (Compose m (DynMaybe t)) (NP I xs)
+sequenceViaDMap =  Compose . fmap (Compose . fmap hsequence . npSequenceViaDMap distributeDMapOverDynPure . hmap (Comp . getCompose)) . sequence'_NP . hmap (Comp . getCompose)
 
 -- specialized to the DynMBuildable case.  Derive an instance of DynMBuildable using your build function and these functions will do the rest.
 dynMBuildableToConWidgets::forall t m a.( Reflex t
@@ -136,11 +136,7 @@ dynMBuildableToConWidgets::forall t m a.( Reflex t
                                         , AllDynMBuildable t m a)
   =>DynMaybe t a -> [ConWidget t m a]
 dynMBuildableToConWidgets = dynMaybeToConWidgets widgetFieldsAndSequence where
-  widgetFieldsAndSequence =
-    let buildC = Proxy :: Proxy (DynMBuildable t m)
-        sListIC = Proxy :: Proxy SListI
-    in hcliftA sListIC (Comp . sequenceViaDMap) . unPOP . hcliftA buildC (Comp . dynMBuild)
-
+  widgetFieldsAndSequence = mapFieldsFromConstraintAndCustomSequence (Dict :: Dict (All2 (DynMBuildable t m)) (Code a)) (Compose . dynMBuild) sequenceViaDMap 
 
 
 dynMBuildableToWidgetEvent::(Reflex t, Generic a,HasDatatypeInfo a, Applicative m,AllDynMBuildable t m a)
