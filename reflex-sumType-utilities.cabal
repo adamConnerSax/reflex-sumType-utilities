@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Reflex.Dynamic.PerConstructor
                        Reflex.Dynamic.EqProduct
+  other-modules:       Reflex.Dynamic.Common
   build-depends:       base >= 4.7 && < 5
                      , reflex
                      , generics-sop

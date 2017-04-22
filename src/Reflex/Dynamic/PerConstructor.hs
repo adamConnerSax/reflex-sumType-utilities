@@ -25,6 +25,8 @@ module Reflex.Dynamic.PerConstructor
   , HasDatatypeInfo
   ) where
 
+import           Reflex.Dynamic.Common (DynMaybe,DynMBuildable(dynMBuild),AllDynMBuildable)
+
 import           Control.Monad               (join)
 import           Data.Functor.Compose        (Compose (Compose,getCompose))
 
@@ -47,8 +49,6 @@ import           Reflex                      (Dynamic, Event, Reflex
 
 
 -- pure
-
-type DynMaybe t = Compose (Dynamic t) Maybe
 
 -- These events only fire if the corresponding constructor value changes.  They do not fire on changes to other constructors.
 dynamicToEventList::(Reflex t, Generic a)=>Dynamic t a -> [Event t a]
@@ -85,12 +85,6 @@ whichFired = leftmost . zipWith (<$) [0..]
 
 
 data ConWidget t m a = ConWidget { conName::ConstructorName, switchedTo::Event t a, widget::m (DynMaybe t a) }
-
-class DynMBuildable t m a where
-  dynMBuild::DynMaybe t a -> m (DynMaybe t a)
-
--- This constraint means that for each type 'b' in a field of a constructor of 'a', b must satisfy 'DynMBuildable t m b'
-type AllDynMBuildable t m a = (All2 (DynMBuildable t m) (Code a))
 
 type MapAndSequenceDynMaybeFields t m a = MapFieldsAndSequence (DynMaybe t) (Compose m (DynMaybe t)) (Code a)
 

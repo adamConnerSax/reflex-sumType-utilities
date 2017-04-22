@@ -8,7 +8,7 @@
 module Reflex.Dynamic.EqProduct
   (
     buildSafeEqProduct
-  , functionPOPFromClass
+  , buildSafeEqProductFromConstraint
   , buildSafeDynMBuildableEqProduct
   , buildUnsafeDynMBuildableEqProduct
   ) where
@@ -33,7 +33,7 @@ import           Generics.SOP.Distribute (functorToNP,reAssociateNP,distributeTo
 
 import           Reflex                      (Dynamic, Event, Reflex, distributeDMapOverDynPure, uniqDyn)
 
-import Reflex.Dynamic.PerConstructor (DynMaybe,DynMBuildable(..),AllDynMBuildable)
+import Reflex.Dynamic.Common (DynMaybe,DynMBuildable(..),AllDynMBuildable,functionPOPFromClass)
 
 joinMaybesAndUniq::(Eq a, Reflex t)=> (DynMaybe t :.: Maybe) a -> DynMaybe t a
 joinMaybesAndUniq = Compose . uniqDyn . fmap join . getCompose . unComp
@@ -47,8 +47,6 @@ allCompToMDynMaybe = fmap (Compose . unComp) . unComp
 compDynMaybeToAllComp::Functor m=>(m :.: DynMaybe t) a -> (m :.: Dynamic t :.: Maybe) a
 compDynMaybeToAllComp = Comp . fmap (Comp . getCompose) . unComp
 
-functionPOPFromClass::forall c f g xss.SListI2 xss=>Dict (All2 c) xss->(forall a.c a=>f a -> g a)->POP (f -.-> g) xss
-functionPOPFromClass d fn = withDict d $ hcpure (Proxy :: Proxy c) $ Fn fn
 
 -- This is safe in the sense that if you give it a sum-type, you get back a widget per constructor instead of ignoring
 -- uniqAndBuild seems..unoptimal.  3 applications over the POP. Can they be fused?
@@ -62,6 +60,14 @@ buildSafeEqProduct buildFns =
       popToListOfBuilt = fmap allCompToMDynMaybe . hcollapse . reconstructA . hcmap slistIC (Comp . doSequencing) . unPOP
   in  popToListOfBuilt . uniqAndBuild . dynMaybeToPOP
 
+buildSafeEqProductFromConstraint::forall c a t m.(Generic a, All2 Eq (Code a), Reflex t, Applicative m)
+  =>Dict (All2 c) (Code a)
+  ->(forall a.c a=>DynMaybe t a -> (m :.: DynMaybe t) a)
+  -> DynMaybe t a
+  -> [m (DynMaybe t a)]
+buildSafeEqProductFromConstraint d fn = buildSafeEqProduct (functionPOPFromClass d fn)
+
+-- special case for DynMBuildable. Also serves as an example for how to use the constraint machinery.
 
 buildSafeDynMBuildableEqProduct::forall a t m.(Generic a
                                               , All2 Eq (Code a)
@@ -69,19 +75,15 @@ buildSafeDynMBuildableEqProduct::forall a t m.(Generic a
                                               , Reflex t
                                               , Applicative m)
   =>DynMaybe t a->[m (DynMaybe t a)]
-buildSafeDynMBuildableEqProduct = buildSafeEqProduct makeDynMBuildPOP
-
-makeDynMBuildPOP::forall xss t m.(SListI2 xss,Reflex t, All2 (DynMBuildable t m) xss, Functor m)=>POP (DynMaybe t -.-> (m :.: DynMaybe t)) xss
-makeDynMBuildPOP = functionPOPFromClass (Dict :: Dict (All2 (DynMBuildable t m)) xss) (Comp . dynMBuild)
-
+buildSafeDynMBuildableEqProduct = buildSafeEqProductFromConstraint (Dict :: Dict (All2 (DynMBuildable t m)) (Code a)) (Comp . dynMBuild)
 
 -- NB: This assumes that the input has only one constructor.  It does not check!
 -- but we know that any type has at least one constructor.  So it should never crash on an empty list
 buildUnsafeDynMBuildableEqProduct::(Generic a
-                      , All2 Eq (Code a)
-                      , AllDynMBuildable t m a
-                      , Reflex t
-                      , Applicative m)
+                                   , All2 Eq (Code a)
+                                   , All2 (DynMBuildable t m) (Code a)
+                                   , Reflex t
+                                   , Applicative m)
   =>DynMaybe t a->m (DynMaybe t a)
 buildUnsafeDynMBuildableEqProduct = head . buildSafeDynMBuildableEqProduct
 
