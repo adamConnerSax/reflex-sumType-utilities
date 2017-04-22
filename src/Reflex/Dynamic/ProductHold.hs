@@ -33,14 +33,14 @@ import           Reflex                      (Dynamic, Event, Reflex
 import Reflex.Dynamic.PerConstructor (DynMaybe,DynMBuildable(..),AllDynMBuildable)
 
 
-joinMaybes::(Eq a, Reflex t)=> (DynMaybe t :.: Maybe) a -> DynMaybe t a
-joinMaybes = Compose . uniqDyn . fmap join . getCompose . unComp
+joinMaybesAndUniq::(Eq a, Reflex t)=> (DynMaybe t :.: Maybe) a -> DynMaybe t a
+joinMaybesAndUniq = Compose . uniqDyn . fmap join . getCompose . unComp
 
 reComposeDynMaybe::Reflex t=>DynMaybe t a -> (Dynamic t :.: Maybe) a
 reComposeDynMaybe = Comp . getCompose
 
 widgetWithUniq::(Reflex t, Eq a, Functor m, DynMBuildable t m a) => (DynMaybe t :.: Maybe) a -> (m :.: Dynamic t :.: Maybe) a
-widgetWithUniq = Comp . fmap reComposeDynMaybe . dynMBuild . joinMaybes 
+widgetWithUniq = Comp . fmap reComposeDynMaybe . dynMBuild . joinMaybesAndUniq
 
 widgetWithUniq'::(Reflex t, Functor m, (And Eq (DynMBuildable t m)) a) => (DynMaybe t :.: Maybe) a -> (m :.: Dynamic t :.: Maybe) a
 widgetWithUniq' = widgetWithUniq
@@ -51,44 +51,45 @@ doSequencing = Comp . fmap (Comp . fmap hsequence . npSequenceViaDMap distribute
 reCompose::Functor m=>(m :.: Dynamic t :.: Maybe) a -> m (DynMaybe t a)
 reCompose = fmap (Compose . unComp) . unComp 
 
+functionPOPFromClass::forall c f g xss.(SListI2 xss)=>Dict (All2 c) xss->(forall a.c a=>f a -> g a)->POP (f -.-> g) xss
+functionPOPFromClass d fn = withDict d $ cpure_POP (Proxy :: Proxy c) $ Fn fn
+
 -- This is safe in the sense that if you give it a sum-type, you get back a widget per constructor instead of ignoring 
--- There is a lot of constraint massaging in there.  I think there's an easier way but I tried a few things...
 buildSafeEqProduct::forall a t m.(Generic a
-                                 , All2 Eq (Code a)
-                                 , AllDynMBuildable t m a
-                                 , Reflex t
-                                 , Applicative m)
-  =>DynMaybe t a->[m (DynMaybe t a)]
-buildSafeEqProduct = buildSafeEqProduct' makeDynMBuildPOP
-
-makeDynMBuildPOP::forall xss t m.(SListI2 xss,Reflex t, All2 (DynMBuildable t m) xss, Functor m)=>POP (DynMaybe t -.-> (m :.: DynMaybe t)) xss
-makeDynMBuildPOP = makePOPOfMap (Dict :: Dict (All2 (DynMBuildable t m)) xss) (Comp . dynMBuild)
-
-makePOPOfMap::forall c f g xss.(SListI2 xss)=>Dict (All2 c) xss->(forall a.c a=>f a -> g a)->POP (f -.-> g) xss
-makePOPOfMap d fn = withDict d $ cpure_POP (Proxy :: Proxy c) $ Fn fn
-
-
-buildSafeEqProduct'::forall a t m.(Generic a
                                  , All2 Eq (Code a)
                                  , Reflex t
                                  , Applicative m)
   =>POP (DynMaybe t -.-> m :.: DynMaybe t) (Code a) -> DynMaybe t a->[m (DynMaybe t a)]
-buildSafeEqProduct' buildFns =
+buildSafeEqProduct buildFns =
   let slistIC = Proxy :: Proxy SListI
       eqC = Proxy :: Proxy Eq
-      hmapWidgetAndUniq::POP (DynMaybe t :.: Maybe) (Code a) -> POP (m :.: Dynamic t :.: Maybe) (Code a)
-      hmapWidgetAndUniq = hcmap (Comp . fmap (Comp . getCompose) . unComp) . hap buildFns . hcmap eqC joinMaybes
+--      hmapWidgetAndUniq::POP (DynMaybe t :.: Maybe) (Code a) -> POP (m :.: Dynamic t :.: Maybe) (Code a)
+      hmapWidgetAndUniq = hmap (Comp . fmap (Comp . getCompose) . unComp) . hap buildFns . hcmap eqC joinMaybesAndUniq
   in fmap reCompose . hcollapse . reconstructA . hcmap slistIC (Comp . doSequencing) . unPOP . hmapWidgetAndUniq . distributeToFields . reAssociateNP . functorToNP
 
 
+buildSafeDynMBuildableEqProduct::forall a t m.(Generic a
+                                              , All2 Eq (Code a)
+                                              , AllDynMBuildable t m a
+                                              , Reflex t
+                                              , Applicative m)
+  =>DynMaybe t a->[m (DynMaybe t a)]
+buildSafeDynMBuildableEqProduct = buildSafeEqProduct makeDynMBuildPOP
 
 -- NB: This assumes that the input has only one constructor.  It does not check!
 -- but we know that any type has at least one constructor.  So it should never crash on an empty list
-buildUnsafeEqProduct::(Generic a
+buildUnsafeDynMBuildableEqProduct::(Generic a
                       , All2 Eq (Code a)
                       , AllDynMBuildable t m a
                       , Reflex t
                       , Applicative m)
   =>DynMaybe t a->m (DynMaybe t a)
-buildUnsafeEqProduct = head . buildSafeEqProduct
+buildUnsafeDynMBuildableEqProduct = head . buildSafeDynMBuildableEqProduct
+
+
+
+makeDynMBuildPOP::forall xss t m.(SListI2 xss,Reflex t, All2 (DynMBuildable t m) xss, Functor m)=>POP (DynMaybe t -.-> (m :.: DynMaybe t)) xss
+makeDynMBuildPOP = functionPOPFromClass (Dict :: Dict (All2 (DynMBuildable t m)) xss) (Comp . dynMBuild)
+
+
 
