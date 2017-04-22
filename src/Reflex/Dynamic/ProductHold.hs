@@ -61,8 +61,8 @@ buildSafeEqProduct::forall a t m.(Generic a
   =>DynMaybe t a->[m (DynMaybe t a)]
 buildSafeEqProduct = buildSafeEqProduct' makeDynMBuildPOP
 
-makeDynMBuildPOP::forall xss t m.(SListI2 xss,Reflex t, All2 (DynMBuildable t m) xss, Functor m)=>POP ((Dynamic t :.: Maybe) -.-> (m :.: Dynamic t :.: Maybe)) xss
-makeDynMBuildPOP = makePOPOfMap (Dict :: Dict (All2 (DynMBuildable t m)) xss) (Comp . fmap (Comp . getCompose) . dynMBuild  . Compose . unComp)
+makeDynMBuildPOP::forall xss t m.(SListI2 xss,Reflex t, All2 (DynMBuildable t m) xss, Functor m)=>POP (DynMaybe t -.-> (m :.: DynMaybe t)) xss
+makeDynMBuildPOP = makePOPOfMap (Dict :: Dict (All2 (DynMBuildable t m)) xss) (Comp . dynMBuild)
 
 makePOPOfMap::forall c f g xss.(SListI2 xss)=>Dict (All2 c) xss->(forall a.c a=>f a -> g a)->POP (f -.-> g) xss
 makePOPOfMap d fn = withDict d $ cpure_POP (Proxy :: Proxy c) $ Fn fn
@@ -72,12 +72,12 @@ buildSafeEqProduct'::forall a t m.(Generic a
                                  , All2 Eq (Code a)
                                  , Reflex t
                                  , Applicative m)
-  =>POP (Dynamic t :.: Maybe -.-> m :.: Dynamic t :.: Maybe) (Code a) -> DynMaybe t a->[m (DynMaybe t a)]
+  =>POP (DynMaybe t -.-> m :.: DynMaybe t) (Code a) -> DynMaybe t a->[m (DynMaybe t a)]
 buildSafeEqProduct' buildFns =
   let slistIC = Proxy :: Proxy SListI
       eqC = Proxy :: Proxy Eq
       hmapWidgetAndUniq::POP (DynMaybe t :.: Maybe) (Code a) -> POP (m :.: Dynamic t :.: Maybe) (Code a)
-      hmapWidgetAndUniq = hap buildFns . hcmap eqC (Comp . getCompose . joinMaybes)
+      hmapWidgetAndUniq = hcmap (Comp . fmap (Comp . getCompose) . unComp) . hap buildFns . hcmap eqC joinMaybes
   in fmap reCompose . hcollapse . reconstructA . hcmap slistIC (Comp . doSequencing) . unPOP . hmapWidgetAndUniq . distributeToFields . reAssociateNP . functorToNP
 
 
