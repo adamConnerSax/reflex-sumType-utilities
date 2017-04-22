@@ -132,6 +132,8 @@ dynMaybeToWidgetEvent mapAndS dynMA =
 sequenceViaDMap::(Reflex t, Applicative m, SListI xs)=>NP (m :.: (DynMaybe t)) xs -> (Compose m (DynMaybe t)) (NP I xs)
 sequenceViaDMap =  Compose . fmap (Compose . fmap hsequence . npSequenceViaDMap distributeDMapOverDynPure . hmap (Comp . getCompose)) . sequence'_NP
 
+-- Reuse/redo the work in EqProduct to generalize the builder function and allow externally defined constraints to be applied.
+
 -- specialized to the DynMBuildable case.  Derive an instance of DynMBuildable using your build function and these functions will do the rest.
 dynMBuildableToConWidgets::forall t m a.( Reflex t
                                         , Generic a

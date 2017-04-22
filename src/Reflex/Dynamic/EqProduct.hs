@@ -51,7 +51,7 @@ functionPOPFromClass::forall c f g xss.SListI2 xss=>Dict (All2 c) xss->(forall a
 functionPOPFromClass d fn = withDict d $ hcpure (Proxy :: Proxy c) $ Fn fn
 
 -- This is safe in the sense that if you give it a sum-type, you get back a widget per constructor instead of ignoring
--- hmapWidgetAndUniq seems..unoptimal.  3 applications over the POP.
+-- uniqAndBuild seems..unoptimal.  3 applications over the POP. Can they be fused?
 buildSafeEqProduct::forall a t m.(Generic a, All2 Eq (Code a), Reflex t, Applicative m)
   =>POP (DynMaybe t -.-> m :.: DynMaybe t) (Code a) -> DynMaybe t a->[m (DynMaybe t a)]
 buildSafeEqProduct buildFns =
