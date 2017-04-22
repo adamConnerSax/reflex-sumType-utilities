@@ -4,13 +4,14 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE RankNTypes                 #-}
 module Reflex.Dynamic.ProductHold where
 
 import           Data.Functor.Compose        (Compose (Compose,getCompose))
 import           Control.Monad               (join)
 
 import           Generics.SOP                (Code, Generic,
-                                              All2, (:.:)(..), unComp, 
+                                              All2, (:.:)(Comp), unComp, 
                                               hsequence, hcliftA, hmap, POP, unPOP, 
                                               SListI,SListI2,  hcollapse, I, Proxy(..),hcmap, And, hliftA2, type (-.->)(..)
                                              ,hap, hpure, hcpure)
@@ -58,23 +59,14 @@ buildSafeEqProduct::forall a t m.(Generic a
                                  , Reflex t
                                  , Applicative m)
   =>DynMaybe t a->[m (DynMaybe t a)]
-buildSafeEqProduct =
-  let slistIC = Proxy :: Proxy SListI
-      eqDict = Dict :: Dict (All2 Eq) (Code a)
-      dmbDict = Dict :: Dict (All2 (DynMBuildable t m)) (Code a)
-      eqAnddmbDict = zipAll2 eqDict dmbDict
-      eqAnddmbPOP = unAll_POP eqAnddmbDict
-      hmapWidgetAndUniq::POP (DynMaybe t :.: Maybe) (Code a) -> POP (m :.: Dynamic t :.: Maybe) (Code a)
-      hmapWidgetAndUniq = hliftA2  (\c x -> withDict c widgetWithUniq' x) eqAnddmbPOP
-  in fmap reCompose . hcollapse . reconstructA . hcmap slistIC (Comp . doSequencing) . unPOP . hmapWidgetAndUniq . distributeToFields . reAssociateNP . functorToNP
+buildSafeEqProduct = buildSafeEqProduct' makeDynMBuildPOP
 
--- This doesn't work.  Some sort of kind issue.
-{-
-makeDynMBuildPOP::(SListI2 xss,Reflex t, All2 (DynMBuildable t m) xss, Functor m)=>POP ((Dynamic t :.: Maybe) -.-> (m :.: Dynamic t :.: Maybe)) xss
-makeDynMBuildPOP =
-  let dmbC = Proxy :: Proxy (All2 (DynMBuildable t m))
-  in cpure_POP dmbC $ Fn (Comp . fmap (Comp . getCompose) . dynMBuild  . Compose . unComp)
--}
+makeDynMBuildPOP::forall xss t m.(SListI2 xss,Reflex t, All2 (DynMBuildable t m) xss, Functor m)=>POP ((Dynamic t :.: Maybe) -.-> (m :.: Dynamic t :.: Maybe)) xss
+makeDynMBuildPOP = makePOPOfMap (Dict :: Dict (All2 (DynMBuildable t m)) xss) (Comp . fmap (Comp . getCompose) . dynMBuild  . Compose . unComp)
+
+makePOPOfMap::forall c f g xss.(SListI2 xss)=>Dict (All2 c) xss->(forall a.c a=>f a -> g a)->POP (f -.-> g) xss
+makePOPOfMap d fn = withDict d $ cpure_POP (Proxy :: Proxy c) $ Fn fn
+
 
 buildSafeEqProduct'::forall a t m.(Generic a
                                  , All2 Eq (Code a)
@@ -87,6 +79,7 @@ buildSafeEqProduct' buildFns =
       hmapWidgetAndUniq::POP (DynMaybe t :.: Maybe) (Code a) -> POP (m :.: Dynamic t :.: Maybe) (Code a)
       hmapWidgetAndUniq = hap buildFns . hcmap eqC (Comp . getCompose . joinMaybes)
   in fmap reCompose . hcollapse . reconstructA . hcmap slistIC (Comp . doSequencing) . unPOP . hmapWidgetAndUniq . distributeToFields . reAssociateNP . functorToNP
+
 
 
 -- NB: This assumes that the input has only one constructor.  It does not check!
