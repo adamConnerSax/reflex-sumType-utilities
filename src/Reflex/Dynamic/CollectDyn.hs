@@ -8,13 +8,13 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE DeriveAnyClass             #-}
 module Reflex.Dynamic.CollectDyn where
 
-import Generics.SOP (NP,SListI,hmap,I(I),unI, (:.:)(Comp),unComp,from,to, Generic,Code,SOP(..),unSOP,hsequence,hliftA)
-import Generics.SOP.DMapUtilities (npSequenceViaDMap,npRecompose)
+import Generics.SOP (NS, NP,SListI, SListI2, hmap,I(I),unI, (:.:)(Comp),unComp,from,to, Generic,Code,SOP(..),unSOP,hsequence',hliftA, hcliftA, Proxy(..))
+import Generics.SOP.DMapUtilities (npSequenceViaDMap,nsOfnpRecompose,FunctorWrapTypeList,FunctorWrapTypeListOfLists)
 import Reflex (Reflex,Dynamic,distributeDMapOverDynPure)
-
-import Data.Type.Bool (type (&&))
 
 {-
 -- | Convert a datastructure whose constituent parts are all 'Dynamic's into a
@@ -29,35 +29,19 @@ collectDynPure :: ( RebuildSortedHList (HListElems b)
 collectDynPure ds = fmap fromHList $ distributeFHListOverDynPure $ toFHList $ toHList ds
 -}
 
-type family FunctorWrapList (f :: * -> *) (xs :: [*]) :: [*] where
-  FunctorWrapList f '[] = '[]
-  FunctorWrapList f (x ': xs') = f x ': FunctorWrapList f xs'
 
-type family FunctorWrapListOfLists f (xss :: [[*]]) :: [[*]] where
-  FunctorWrapListOfLists f '[] = '[]
-  FunctorWrapListOfLists f (xs ': xss') = FunctorWrapList f xs ': FunctorWrapListOfLists f xss' 
+collectDynPure::(Reflex t,Generic a, Generic b, (Code a) ~ FunctorWrapTypeListOfLists (Dynamic t) (Code b))=>a -> Dynamic t b
+collectDynPure = fmap (to . SOP) . hsequence' . collectDynPureNSNP . aToNSNPI
 
-collectDynPure::(Generic a, Generic b, (Code a) ~ FunctorWrapListOfLists (Dynamic t) (Code b))=>a -> Dynamic t b
-collectDynPure = fmap (to . SOP) . hsequence . hliftA (Comp . collectDynPureNP . hliftA (fmap unI . unComp) . npRecompose) . unSOP . from a
+aToNSNPI::(Generic a, Code a ~ FunctorWrapTypeListOfLists (Dynamic t) xss, SListI2 xss) =>a -> NS (NP (I :.: Dynamic t)) xss
+aToNSNPI = nsOfnpRecompose . unSOP . from
+
+collectDynPureNSNP::(Reflex t,SListI2 xss)=>NS (NP (I :.: Dynamic t)) xss -> NS (Dynamic t :.: NP I) xss
+collectDynPureNSNP =
+  let slistIC = Proxy :: Proxy SListI
+  in hcliftA slistIC (Comp . collectDynPureNP . hliftA (unI . unComp))
 
 collectDynPureNP::(Reflex t, SListI xs)=>NP (Dynamic t) xs -> Dynamic t (NP I xs)
-collectDynPureNP = npSequenceViaDMap distributeDMapOverDynPure . hmap (Comp . fmap I) 
-  
---
+collectDynPureNP = npSequenceViaDMap distributeDMapOverDynPure . hliftA (Comp . fmap I) 
 
-type family Equals (a :: k) (b :: k) :: Bool where
-   Equals a a = True
-   Equals a b = False
 
-type family IsFunctorWrappedList (f :: * -> *) (xs :: [*]) (fxs :: [*]) :: Bool where
-  IsFunctorWrappedList f '[] '[] = True
-  IsFunctorWrappedList f (x ': xs') '[] = False
-  IsFunctorWrappedList f '[] (fx ': fxs') = False
-  IsFunctorWrappedList f (x ': xs') (fx ': fxs') = (Equals (f x) fx) && (IsFunctorWrappedList f xs' fxs')
-
-  
-type family IsFunctorWrappedListOfLists (f :: * -> *) (xss :: [[*]]) (fxss :: [[*]]) :: Bool where
-  IsFunctorWrappedListOfLists f '[] '[] = True
-  IsFunctorWrappedListOfLists f (xs ': xss') '[] = False
-  IsFunctorWrappedListOfLists f '[] (fxs ': fxss') = False
-  IsFunctorWrappedListOfLists f (xs ': xss') (fxs ': fxss') = (IsFunctorWrappedList f xs fxs) && IsFunctorWrappedListOfLists f xss' fxss' 
