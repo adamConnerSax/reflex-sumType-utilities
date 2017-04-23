@@ -4,10 +4,10 @@ resolver: lts-8.6
 # non-dependency (i.e. a user package), and its test suites and benchmarks
 # will not be run. This is useful for tweaking upstream packages.
 packages:
-#- location:
-#    git: https://github.com/adamConnerSax/perConstructor-sop
-#    commit: "96f181951811862fa28ecfd841f274afa9b7b3d0"
-#  extra-dep: true
+- location:
+    git: https://github.com/adamConnerSax/perConstructor-sop
+    commit: "0219a14b35d57d38d81e0a7774a30c5900e530f4"
+  extra-dep: true
 - location:
     git: https://github.com/ghcjs/jsaddle
     commit: "2e1bdcf385b69beef02ad733a0ab4d92db44f2df"
@@ -18,7 +18,6 @@ packages:
     git: https://github.com/reflex-frp/reflex
     commit: "02f0afb6b9a138e61b9d348e01ece8039583262d"
   extra-dep: true
-- '../perConstructor-sop'
 - '.'
 
 allow-newer: true

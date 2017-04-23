@@ -9,22 +9,16 @@
 {-# LANGUAGE DataKinds                  #-}
 module Reflex.Dynamic.CollectDyn where
 
-import Generics.SOP (NS, NP,SListI, SListI2, hmap,I(I),unI, (:.:)(Comp),unComp,from,to, Generic,Code,SOP(..),unSOP,hsequence',hliftA, hcliftA, Proxy(..))
-import Generics.SOP.DMapUtilities (npSequenceViaDMap,npRecompose,nsOfnpRecompose,FunctorWrapTypeList,FunctorWrapTypeListOfLists)
-import Reflex (Reflex,Dynamic,distributeDMapOverDynPure)
+import Generics.SOP               (NS, NP,SListI, SListI2, hmap,I(I),unI
+                                  , (:.:)(Comp),unComp,from,to, Generic
+                                  ,Code,SOP(..),unSOP
+                                  ,hsequence',hliftA, hcliftA, Proxy(..))
+       
+import Generics.SOP.DMapUtilities (npSequenceViaDMap,npRecompose,nsOfnpRecompose
+                                  ,FunctorWrapTypeList,FunctorWrapTypeListOfLists)
+       
+import Reflex                     (Reflex,Dynamic,distributeDMapOverDynPure)
 
-{-
--- | Convert a datastructure whose constituent parts are all 'Dynamic's into a
--- single 'Dynamic' whose value represents all the current values of the input's
--- consitutent 'Dynamic's.
-collectDynPure :: ( RebuildSortedHList (HListElems b)
-                  , IsHList a, IsHList b
-                  , AllAreFunctors (Dynamic t) (HListElems b)
-                  , Reflex t
-                  , HListElems a ~ FunctorList (Dynamic t) (HListElems b)
-                  ) => a -> Dynamic t b
-collectDynPure ds = fmap fromHList $ distributeFHListOverDynPure $ toFHList $ toHList ds
--}
 
 
 distributeNPOverDyn::(Reflex t, SListI xs)=>NP I (FunctorWrapTypeList (Dynamic t) xs) -> Dynamic t (NP I xs)
@@ -43,6 +37,20 @@ collectDynPureNSNP =
 
 collectDynPureNP::(Reflex t, SListI xs)=>NP (Dynamic t) xs -> Dynamic t (NP I xs)
 collectDynPureNP = npSequenceViaDMap distributeDMapOverDynPure . hliftA (Comp . fmap I) 
+
+{-
+-- | Convert a datastructure whose constituent parts are all 'Dynamic's into a
+-- single 'Dynamic' whose value represents all the current values of the input's
+-- consitutent 'Dynamic's.
+collectDynPure :: ( RebuildSortedHList (HListElems b)
+                  , IsHList a, IsHList b
+                  , AllAreFunctors (Dynamic t) (HListElems b)
+                  , Reflex t
+                  , HListElems a ~ FunctorList (Dynamic t) (HListElems b)
+                  ) => a -> Dynamic t b
+collectDynPure ds = fmap fromHList $ distributeFHListOverDynPure $ toFHList $ toHList ds
+-}
+
 
 
 {-
