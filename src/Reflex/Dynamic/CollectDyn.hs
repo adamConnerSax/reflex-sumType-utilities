@@ -7,9 +7,6 @@
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE DeriveAnyClass             #-}
 module Reflex.Dynamic.CollectDyn where
 
 import Generics.SOP (NS, NP,SListI, SListI2, hmap,I(I),unI, (:.:)(Comp),unComp,from,to, Generic,Code,SOP(..),unSOP,hsequence',hliftA, hcliftA, Proxy(..))
