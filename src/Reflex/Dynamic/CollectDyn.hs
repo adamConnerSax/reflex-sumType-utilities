@@ -10,7 +10,7 @@
 module Reflex.Dynamic.CollectDyn where
 
 import Generics.SOP (NS, NP,SListI, SListI2, hmap,I(I),unI, (:.:)(Comp),unComp,from,to, Generic,Code,SOP(..),unSOP,hsequence',hliftA, hcliftA, Proxy(..))
-import Generics.SOP.DMapUtilities (npSequenceViaDMap,nsOfnpRecompose,FunctorWrapTypeList,FunctorWrapTypeListOfLists)
+import Generics.SOP.DMapUtilities (npSequenceViaDMap,npRecompose,nsOfnpRecompose,FunctorWrapTypeList,FunctorWrapTypeListOfLists)
 import Reflex (Reflex,Dynamic,distributeDMapOverDynPure)
 
 {-
@@ -27,6 +27,9 @@ collectDynPure ds = fmap fromHList $ distributeFHListOverDynPure $ toFHList $ to
 -}
 
 
+distributeNPOverDyn::(Reflex t, SListI xs)=>NP I (FunctorWrapTypeList (Dynamic t) xs) -> Dynamic t (NP I xs)
+distributeNPOverDyn = collectDynPureNP . hliftA (unI . unComp) . npRecompose
+
 collectDynPure::(Reflex t,Generic a, Generic b, (Code a) ~ FunctorWrapTypeListOfLists (Dynamic t) (Code b))=>a -> Dynamic t b
 collectDynPure = fmap (to . SOP) . hsequence' . collectDynPureNSNP . aToNSNPI
 
@@ -41,4 +44,12 @@ collectDynPureNSNP =
 collectDynPureNP::(Reflex t, SListI xs)=>NP (Dynamic t) xs -> Dynamic t (NP I xs)
 collectDynPureNP = npSequenceViaDMap distributeDMapOverDynPure . hliftA (Comp . fmap I) 
 
+
+{-
+-- | Collect a hetereogeneous list whose elements are all 'Dynamic's into a
+-- single 'Dynamic' whose value represents the current values of all of the
+-- input 'Dynamic's.
+distributeFHListOverDynPure :: (Reflex t, RebuildSortedHList l) => FHList (Dynamic t) l -> Dynamic t (HList l)
+distributeFHListOverDynPure l = fmap dmapToHList $ distributeDMapOverDynPure $ fhlistToDMap l
+-}
 
