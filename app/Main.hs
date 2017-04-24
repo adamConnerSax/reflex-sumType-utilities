@@ -149,9 +149,12 @@ testCollectDyn (dma,dmb) = collectDynGeneric (getCompose dma, getCompose dmb)
 
 fieldWidget'::(WidgetConstraints t m a)=>(T.Text -> Maybe a) -> (a -> T.Text)->DynMaybe t a -> m (DynMaybe t a)
 fieldWidget' parse print dma = do
+  postBuild <- getPostBuild
+  attrs <- foldDyn const M.empty $ leftmost [("style" =: "background-color:#D98880") <$ postBuild
+                                            , ("style" =: "background-color:#A2D9CE") <$ updated (getCompose dma)] 
   inputEv <- fmapMaybe id <$> traceDynAsEv (const "fieldWidget'-") (getCompose dma) -- Event t a
   let inputEvT = print <$> inputEv
-      config = TextInputConfig "text" "" inputEvT (constDyn M.empty)
+      config = TextInputConfig "text" "" inputEvT attrs
   aDyn <- _textInput_value <$> textInput config
   return . Compose $ parse <$> aDyn
 
