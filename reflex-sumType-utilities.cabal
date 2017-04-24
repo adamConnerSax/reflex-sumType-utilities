@@ -13,6 +13,19 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
+flag wkwebview
+  description: Use wkWebview control rather than ghcjs
+  default: False
+
+flag warp
+  description: Use warp rather than ghcjs
+  default: True
+
+flag ghcjs
+  description: Use GHCJS
+  default: False
+
+                     
 library
   hs-source-dirs:      src
   exposed-modules:     Reflex.Dynamic.PerConstructor
@@ -25,6 +38,31 @@ library
                      , perConstructor-sop
   default-language:    Haskell2010
 
+
+executable demo-warp
+  if flag(wkwebview)
+    buildable: False
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -Wall -fwarn-tabs -funbox-strict-fields -rtsopts -with-rtsopts=-N -O2
+  if flag(warp)
+   cpp-options: -DUSE_WARP -DUSE_JSADDLE
+   build-depends: jsaddle-warp
+  if flag(ghcjs)
+   cpp-options: -DUSE_GHCJS 
+  build-depends:       base
+                     , reflex
+                     , ref-tf
+                     , reflex-dom
+                     , ghcjs-dom
+                     , reflex-sumType-utilities                  
+                     , containers
+                     , text
+                     , process
+                     , safe
+  default-language:    Haskell2010
+
+  
 source-repository head
   type:     git
   location: https://github.com/adamConnerSax/reflex-sumType-utilities

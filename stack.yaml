@@ -14,22 +14,40 @@ packages:
   extra-dep: true
   subdirs:
   - jsaddle
+  - jsaddle-wkwebview
+  - jsaddle-warp
+- location:
+    git: https://github.com/ghcjs/jsaddle-dom
+    commit: "d0d57909bb492596f9ea938b6edadd5eadfdeeee"
+  extra-dep: true  
 - location:
     git: https://github.com/reflex-frp/reflex
     commit: "02f0afb6b9a138e61b9d348e01ece8039583262d"
   extra-dep: true
+- location:
+    git: https://github.com/reflex-frp/reflex-dom
+    commit: "6be990ea6cdea57ef5c3caf2c02d77e0a6c28bb1"
+  extra-dep: true
+  subdirs:
+  - reflex-dom-core
+  - reflex-dom
 - '.'
 
 allow-newer: true
 extra-deps:
  - prim-uniq-0.1.0.1
  - ref-tf-0.4.0.1
+ - ghcjs-dom-0.7.0.4
+ - ghcjs-dom-jsaddle-0.7.0.3
+ - zenc-0.1.1
+ - dependent-sum-template-0.0.0.5
+
 
 
 # Override default flag values for local packages and extra-deps
 flags:
   reflex:
-   use-template-haskell: false 
+   use-template-haskell: false
 
 # Extra package databases containing global packages
 extra-package-dbs: []
