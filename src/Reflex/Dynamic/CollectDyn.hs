@@ -7,14 +7,18 @@
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE DataKinds                  #-}
-module Reflex.Dynamic.CollectDyn where
+module Reflex.Dynamic.CollectDyn
+  (
+    distributeNPOverDyn
+  , collectDynGeneric
+  )where
 
 import Generics.SOP               (NS, NP,SListI, SListI2, hmap,I(I),unI
                                   , (:.:)(Comp),unComp,from,to, Generic
                                   ,Code,SOP(..),unSOP
                                   ,hsequence',hliftA, hcliftA, Proxy(..))
        
-import Generics.SOP.DMapUtilities (npSequenceViaDMap,npRecompose,nsOfnpRecompose
+import Generics.SOP.DMapUtilities (npSequenceViaDMap,npReCompose,nsOfnpReCompose
                                   ,FunctorWrapTypeList,FunctorWrapTypeListOfLists)
        
 import Reflex                     (Reflex,Dynamic,distributeDMapOverDynPure)
@@ -22,13 +26,13 @@ import Reflex                     (Reflex,Dynamic,distributeDMapOverDynPure)
 
 
 distributeNPOverDyn::(Reflex t, SListI xs)=>NP I (FunctorWrapTypeList (Dynamic t) xs) -> Dynamic t (NP I xs)
-distributeNPOverDyn = collectDynPureNP . hliftA (unI . unComp) . npRecompose
+distributeNPOverDyn = collectDynPureNP . hliftA (unI . unComp) . npReCompose
 
-collectDynPure::(Reflex t,Generic a, Generic b, (Code a) ~ FunctorWrapTypeListOfLists (Dynamic t) (Code b))=>a -> Dynamic t b
-collectDynPure = fmap (to . SOP) . hsequence' . collectDynPureNSNP . aToNSNPI
+collectDynGeneric::(Reflex t,Generic a, Generic b, (Code a) ~ FunctorWrapTypeListOfLists (Dynamic t) (Code b))=>a -> Dynamic t b
+collectDynGeneric = fmap (to . SOP) . hsequence' . collectDynPureNSNP . aToNSNPI
 
 aToNSNPI::(Generic a, Code a ~ FunctorWrapTypeListOfLists (Dynamic t) xss, SListI2 xss) =>a -> NS (NP (I :.: Dynamic t)) xss
-aToNSNPI = nsOfnpRecompose . unSOP . from
+aToNSNPI = nsOfnpReCompose . unSOP . from
 
 collectDynPureNSNP::(Reflex t,SListI2 xss)=>NS (NP (I :.: Dynamic t)) xss -> NS (Dynamic t :.: NP I) xss
 collectDynPureNSNP =
