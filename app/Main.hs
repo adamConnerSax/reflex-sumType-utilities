@@ -16,6 +16,7 @@ import           GHCJS.DOM.Types                  (JSM)
 import           Language.Javascript.JSaddle.Warp (run)
 import           Reflex
 import           Reflex.Dom                       hiding (mainWidget, run)
+import           Reflex.Dom.Time                  (delay)
 import           Reflex.Dom.Core                  (mainWidget)
 import           Reflex.Dom.Old                   (MonadWidget)
 
@@ -56,69 +57,95 @@ data TestSum = A Int | B T.Text | C Double | D T.Text deriving (Show, GHC.Generi
 instance Generic TestSum
 instance HasDatatypeInfo TestSum
 
-data TestProd = TestProd Int Double deriving (Show,GHC.Generic)
-instance Generic TestProd
-instance HasDatatypeInfo TestProd
+data TestProduct = TestProduct Int T.Text Double Int T.Text Double deriving (Show,GHC.Generic)
+instance Generic TestProduct
+instance HasDatatypeInfo TestProduct
 
-data TestProdHold = TestProdHold Int T.Text Double Int T.Text Double deriving (Show,GHC.Generic)
-instance Generic TestProdHold
-instance HasDatatypeInfo TestProdHold
+
+rebuildStyle = ("style" =: "background-color:#D98880")
+updateStyle  = ("style" =: "background-color:#F9E79F")
+restingStyle = ("style" =: "background-color:#7DCEA0")
 
 testWidget::JSM ()
 testWidget = mainWidget $ do
-  el "span" $ text "Int: "
-  dynMInt <- build (Compose . constDyn $ Just (2::Int))
+  el "h2" $ text "Various utilities to deal with distributing and sequencing Dynamics on sum and product types."
+  el "h2" $ text "Each of these utilities is available for any type which is an instance of Generic and has fields which are likewise instances of Generic."
+
+  el "br" blank
+  el "span" $ text "Each input/display widget below will usually look like "
+  elAttr "span" restingStyle $ text "this"
+  el "span" $ text ". But when it's rebuilt from scratch it will temporarily change to "
+  elAttr "span" rebuildStyle $ text "this color."
+  el "span" $ text " And when the value is updated but the widget is not rebuilt, it will temporarily change to "
+  elAttr "span" updateStyle $ text "this color"
+  el "span" $ text ". This allows you to see exactly when widgets are updated and rebuilt."
   el "br" $ blank
-  el "span" $ text "Either Int Text: "
+  el "h3" $ text "Building widgets for sum-types with minimal rebuilding (Reflex.Dynamic.PerConstructor)"
+  el "p" $ text "Given a type \"data TestEither = LeftInt Int | RightText Text\", we build an input widget for it and hook that up to a dynamic default value."
+  el "p" $ text "First we give it a \"LeftInt\" input.  Note that you can set the widget to whatever you like and the output reflects that.  But if you change the input, the output matches the new input value.  And input updates that are on the same constructor do not need to rebuild the widget."
+  el "p" $ text "First we give it an \"Int\" input via LeftInt."  
+  dynMInt <- build (Compose . constDyn $ Just (2::Int))
+  el "span" $ text "::Dynamic t (Maybe Int)"
+  el "br" $ blank
   dynMTE1 <- buildSum (LeftInt <$> dynMInt)
+  el "span" $ text " (widget for TestEither)"
   el "br" blank
   dynMaybeText dynMTE1
+  el "span" $ text " (current output of widget)" 
   el "br" blank
-  el "span" $ text "Text: "
+
+  el "p" $ text "Now we give it a \"Text\" input via RightText."  
   dynMText <- build (Compose $ constDyn (Just $ ("ABC"::T.Text)))
+  el "span" $ text "::Dynamic t (Maybe Text)"
   el "br" blank
-  el "span" $ text "Either Int Text: "
   dynMTE2 <- buildSum (RightText <$> dynMText)
+  el "span" $ text " (widget for TestEither)"
   el "br" blank
   dynMaybeText dynMTE2
+  el "span" $ text " (current output of widget)" 
   el "br" blank
-  el "span" $ text "Double: "
+  el "br" blank
+  
+  el "span" $ text "We demonstrate with a larger sum: \"data TestSum = A Int | B T.Text | C Double | D T.Text\""
+  el "p" $ text "We give it a Double input via C"
   dynMDouble <- build (Compose . constDyn $ Nothing)
+  el "span" $ text "::Dynamic t (Maybe Double)"  
   el "br" blank
-
-  el "span" $ text "TestSum: "
   dynMTS <- buildSum (C <$> dynMDouble)
+  el "span" $ text " (widget for TestSum)"
   el "br" blank
   dynMaybeText dynMTS
-  el "br" blank
-
-  el "span" $ text "TestProd: "
-  dynMTP <- buildSum (Compose . constDyn . Just $ TestProd 2 2.0)
-  el "br" blank
-  dynMaybeText dynMTP  
+  el "span" $ text " (current output of widget)"
   el "br" blank
   el "br" blank
-
-  el "span" $ text "TestProdHold: "
+  
+  el "h3" $ text "Widgets for products of types with Eq instances => minimal updating (Reflex.Dynamic.EqProduct)"
+  el "p" $ text "Given a product type, e.g., \"data TestProduct = TestProduct Int T.Text Double Int T.Text Double\" where each field is an instance of Eq, we don't need to update all the fields when only one field of the input changes. But if any field is unparseable, we have to update them all because the input switches to \"Nothing\""
+  el "span" $ text "TestProduct: "
   el "br" blank
-  dynMTPH <- buildUnsafeDynMBuildableEqProduct (Compose . constDyn . Just $ TestProdHold 12 "Hello" 3.14 13 "Goodbye" 3.0)
+  dynMTPH <- buildUnsafeDynMBuildableEqProduct (Compose . constDyn . Just $ TestProduct 12 "Hello" 3.14 13 "Goodbye" 3.0)
+  el "span" $ text "Dynamic t (Maybe TestProduct)"
   el "br" blank
   _ <- buildUnsafeDynMBuildableEqProduct dynMTPH
+  el "span" $ text " (widget for TestProd)"
   el "br" blank
   dynMaybeText dynMTPH
+  el "span" $ text " (current output of widget)"
   el "br" blank
   el "br" blank
 
-  el "span" $ text "CollectDynGeneric: "
+
+  el "h3" $ text "Collecting Dynamics out of products (Reflex.Dynamic.CollectDyn)"
+  el "p" $ text "Given a type, A,  with Dynamic fields and a corresponding type, B, with static fields, we can \"collect\" the dynamic fields of type A and produce a Dynamic B.  For example (Dynamic t (Maybe Int), Dynamic t (Maybe Double)) -> Dynamic t (Maybe Int, Maybe Double)"
   el "br" blank
-  el "span" $ text "Int: "
   dynMInt2 <- build (Compose . constDyn $ Nothing)
+  el "span" $ text "::Dynamic t (Maybe Int)"
   el "br" blank
-  el "span" $ text "Double: "
   dynMDouble2 <- build (Compose . constDyn $ Nothing)
+  el "span" $ text "::Dynamic t (Maybe Double)"
   el "br" blank
   dynText $ T.pack . show <$> testCollectDyn (dynMInt2, dynMDouble2)
-
+  el "span" $ text " (current dynamic value of collectDynGeneric applied to the tuple of dynamics)"
   el "br" blank  
   return ()
 
@@ -146,12 +173,15 @@ uniqDynJust = Compose . uniqDynBy (\a b->isNothing a && isNothing b) . getCompos
 testCollectDyn::Reflex t=>(DynMaybe t Int,DynMaybe t Double)->Dynamic t (Maybe Int, Maybe Double)
 testCollectDyn (dma,dmb) = collectDynGeneric (getCompose dma, getCompose dmb) 
 
-
+-- this widget flashes "rebuildStyle" on postBuild, updateStyle when the inpt update and rests at restingStyle
 fieldWidget'::(WidgetConstraints t m a)=>(T.Text -> Maybe a) -> (a -> T.Text)->DynMaybe t a -> m (DynMaybe t a)
 fieldWidget' parse print dma = do
   postBuild <- getPostBuild
-  attrs <- foldDyn const M.empty $ leftmost [("style" =: "background-color:#D98880") <$ postBuild
-                                            , ("style" =: "background-color:#A2D9CE") <$ updated (getCompose dma)] 
+  let updatedInputEv = () <$ updated (getCompose dma)
+  updatedDelayedEv <- delay 1.0  $ leftmost [updatedInputEv, postBuild] 
+  attrs <- foldDyn const M.empty $ leftmost [rebuildStyle  <$ postBuild
+                                            , updateStyle  <$ updatedInputEv
+                                            , restingStyle <$ updatedDelayedEv] 
   inputEv <- fmapMaybe id <$> traceDynAsEv (const "fieldWidget'-") (getCompose dma) -- Event t a
   let inputEvT = print <$> inputEv
       config = TextInputConfig "text" "" inputEvT attrs
