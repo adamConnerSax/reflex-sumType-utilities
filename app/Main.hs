@@ -16,9 +16,9 @@ import           GHCJS.DOM.Types                  (JSM)
 import           Language.Javascript.JSaddle.Warp (run)
 import           Reflex
 import           Reflex.Dom                       hiding (mainWidget, run)
-import           Reflex.Dom.Time                  (delay)
 import           Reflex.Dom.Core                  (mainWidget)
 import           Reflex.Dom.Old                   (MonadWidget)
+import           Reflex.Dom.Time                  (delay)
 
 import           Control.Monad.Fix                (MonadFix)
 
@@ -33,10 +33,16 @@ import           Data.Traversable                 (sequenceA)
 import           System.Process                   (spawnProcess)
 import           Text.Read                        (readMaybe)
 
-import           Reflex.Dynamic.PerConstructor (whichFired,ConWidget(..),DynMaybe,Generic,HasDatatypeInfo,DynMBuildable(..),AllDynMBuildable,dynMBuildableToConWidgets)
-import           Reflex.Dynamic.EqProduct (buildUnsafeDynMBuildableEqProduct)
-import           Reflex.Dynamic.CollectDyn (collectDynGeneric)
-
+import           Reflex.Dynamic.CollectDyn        (collectDynGeneric)
+import           Reflex.Dynamic.EqProduct         (buildUnsafeDynMBuildableEqProduct)
+import           Reflex.Dynamic.FactorDyn
+import           Reflex.Dynamic.PerConstructor    (AllDynMBuildable,
+                                                   ConWidget (..),
+                                                   DynMBuildable (..), DynMaybe,
+                                                   Generic, HasDatatypeInfo,
+                                                   dynMBuildableToConWidgets,
+                                                   dynamicToEventList,
+                                                   whichFired)
 
 import qualified GHC.Generics                     as GHC
 
@@ -83,7 +89,7 @@ testWidget = mainWidget $ do
   el "h3" $ text "Building widgets for sum-types with minimal rebuilding (Reflex.Dynamic.PerConstructor)"
   el "p" $ text "Given a type \"data TestEither = LeftInt Int | RightText Text\", we build an input widget for it and hook that up to a dynamic default value."
   el "p" $ text "First we give it a \"LeftInt\" input.  Note that you can set the widget to whatever you like and the output reflects that.  But if you change the input, the output matches the new input value.  And input updates that are on the same constructor do not need to rebuild the widget."
-  el "p" $ text "First we give it an \"Int\" input via LeftInt."  
+  el "p" $ text "First we give it an \"Int\" input via LeftInt."
   dynMInt <- build (Compose . constDyn $ Just (2::Int))
   el "span" $ text "::Dynamic t (Maybe Int)"
   el "br" $ blank
@@ -91,10 +97,10 @@ testWidget = mainWidget $ do
   el "span" $ text " (widget for TestEither)"
   el "br" blank
   dynMaybeText dynMTE1
-  el "span" $ text " (current output of widget)" 
+  el "span" $ text " (current output of widget)"
   el "br" blank
 
-  el "p" $ text "Now we give it a \"Text\" input via RightText."  
+  el "p" $ text "Now we give it a \"Text\" input via RightText."
   dynMText <- build (Compose $ constDyn (Just $ ("ABC"::T.Text)))
   el "span" $ text "::Dynamic t (Maybe Text)"
   el "br" blank
@@ -102,14 +108,14 @@ testWidget = mainWidget $ do
   el "span" $ text " (widget for TestEither)"
   el "br" blank
   dynMaybeText dynMTE2
-  el "span" $ text " (current output of widget)" 
+  el "span" $ text " (current output of widget)"
   el "br" blank
   el "br" blank
-  
+
   el "span" $ text "We demonstrate with a larger sum: \"data TestSum = A Int | B T.Text | C Double | D T.Text\""
   el "p" $ text "We give it a Double input via C"
   dynMDouble <- build (Compose . constDyn $ Nothing)
-  el "span" $ text "::Dynamic t (Maybe Double)"  
+  el "span" $ text "::Dynamic t (Maybe Double)"
   el "br" blank
   dynMTS <- buildSum (C <$> dynMDouble)
   el "span" $ text " (widget for TestSum)"
@@ -118,7 +124,7 @@ testWidget = mainWidget $ do
   el "span" $ text " (current output of widget)"
   el "br" blank
   el "br" blank
-  
+
   el "h3" $ text "Widgets for products of types with Eq instances => minimal updating (Reflex.Dynamic.EqProduct)"
   el "p" $ text "Given a product type, e.g., \"data TestProduct = TestProduct Int T.Text Double Int T.Text Double\" where each field is an instance of Eq, we don't need to update all the fields when only one field of the input changes. But if any field is unparseable, we have to update them all because the input switches to \"Nothing\""
   el "span" $ text "TestProduct: "
@@ -146,7 +152,7 @@ testWidget = mainWidget $ do
   el "br" blank
   dynText $ T.pack . show <$> testCollectDyn (dynMInt2, dynMDouble2)
   el "span" $ text " (current dynamic value of collectDynGeneric applied to the tuple of dynamics)"
-  el "br" blank  
+  el "br" blank
   return ()
 
 dynMaybeText::(ReflexConstraints t m, Show a)=>DynMaybe t a->m ()
@@ -158,7 +164,7 @@ traceDynAsEv f dyn = do
   let f' prefix x = prefix ++ f x
       upEv = traceEventWith (f' "update-") $ updated dyn
       pbEv = traceEventWith (f' "postbuild-") $ tag (current dyn) postbuild
-  return $ leftmost [upEv, pbEv] 
+  return $ leftmost [upEv, pbEv]
 
 
 type ReflexConstraints t m = (MonadWidget t m, DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace)
@@ -171,17 +177,17 @@ uniqDynJust = Compose . uniqDynBy (\a b->isNothing a && isNothing b) . getCompos
 
 
 testCollectDyn::Reflex t=>(DynMaybe t Int,DynMaybe t Double)->Dynamic t (Maybe Int, Maybe Double)
-testCollectDyn (dma,dmb) = collectDynGeneric (getCompose dma, getCompose dmb) 
+testCollectDyn (dma,dmb) = collectDynGeneric (getCompose dma, getCompose dmb)
 
 -- this widget flashes "rebuildStyle" on postBuild, updateStyle when the inpt update and rests at restingStyle
 fieldWidget'::(WidgetConstraints t m a)=>(T.Text -> Maybe a) -> (a -> T.Text)->DynMaybe t a -> m (DynMaybe t a)
 fieldWidget' parse print dma = do
   postBuild <- getPostBuild
   let updatedInputEv = () <$ updated (getCompose dma)
-  updatedDelayedEv <- delay 1.0  $ leftmost [updatedInputEv, postBuild] 
+  updatedDelayedEv <- delay 1.0  $ leftmost [updatedInputEv, postBuild]
   attrs <- foldDyn const M.empty $ leftmost [rebuildStyle  <$ postBuild
                                             , updateStyle  <$ updatedInputEv
-                                            , restingStyle <$ updatedDelayedEv] 
+                                            , restingStyle <$ updatedDelayedEv]
   inputEv <- fmapMaybe id <$> traceDynAsEv (const "fieldWidget'-") (getCompose dma) -- Event t a
   let inputEvT = print <$> inputEv
       config = TextInputConfig "text" "" inputEvT attrs
@@ -212,12 +218,12 @@ class WidgetConstraints t m a => TestBuilder t m a where
 instance TestBuilder t m a=>DynMBuildable t m a where
   dynMBuild = build
 
-  
+
 buildSum::forall a t m.(Functor m, Generic a, HasDatatypeInfo a
                        , WidgetConstraints t m a
                        , AllDynMBuildable t m a)
   =>DynMaybe t a->m (DynMaybe t a)
-buildSum = sumChooserWH . dynMBuildableToConWidgets 
+buildSum = sumChooserWH . dynMBuildableToConWidgets
 
 
 instance WidgetConstraints t m Int => TestBuilder t m Int where

@@ -31,6 +31,7 @@ library
   exposed-modules:     Reflex.Dynamic.PerConstructor
                        Reflex.Dynamic.EqProduct
                        Reflex.Dynamic.CollectDyn
+                       Reflex.Dynamic.FactorDyn
   other-modules:       Reflex.Dynamic.Common
   build-depends:       base >= 4.7 && < 5
                      , reflex
@@ -54,6 +55,7 @@ executable demo-warp
                      , reflex
                      , ref-tf
                      , reflex-dom
+
                      , ghcjs-dom
                      , reflex-sumType-utilities                  
                      , containers

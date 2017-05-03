@@ -1,27 +1,31 @@
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE PolyKinds                  #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE ConstraintKinds            #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
 module Reflex.Dynamic.CollectDyn
   (
     distributeNPOverDyn
   , collectDynGeneric
   )where
 
-import Generics.SOP               (NS, NP,SListI, SListI2, hmap,I(I),unI
-                                  , (:.:)(Comp),unComp,from,to, Generic
-                                  ,Code,SOP(..),unSOP
-                                  ,hsequence',hliftA, hcliftA, Proxy(..))
-       
-import Generics.SOP.DMapUtilities (npSequenceViaDMap,npReCompose,nsOfnpReCompose
-                                  ,FunctorWrapTypeList,FunctorWrapTypeListOfLists)
-       
-import Reflex                     (Reflex,Dynamic,distributeDMapOverDynPure)
+import           Generics.SOP               ((:.:) (Comp), Code, Generic, I (I),
+                                             NP, NS, Proxy (..), SListI,
+                                             SListI2, SOP (..), from, hcliftA,
+                                             hliftA, hmap, hsequence', to,
+                                             unComp, unI, unSOP)
+
+import           Generics.SOP.DMapUtilities (FunctorWrapTypeList,
+                                             FunctorWrapTypeListOfLists,
+                                             npReCompose, npSequenceViaDMap,
+                                             nsOfnpReCompose)
+
+import           Reflex                     (Dynamic, Reflex,
+                                             distributeDMapOverDynPure)
 
 
 
@@ -40,28 +44,5 @@ collectDynPureNSNP =
   in hcliftA slistIC (Comp . collectDynPureNP . hliftA (unI . unComp))
 
 collectDynPureNP::(Reflex t, SListI xs)=>NP (Dynamic t) xs -> Dynamic t (NP I xs)
-collectDynPureNP = npSequenceViaDMap distributeDMapOverDynPure . hliftA (Comp . fmap I) 
-
-{-
--- | Convert a datastructure whose constituent parts are all 'Dynamic's into a
--- single 'Dynamic' whose value represents all the current values of the input's
--- consitutent 'Dynamic's.
-collectDynPure :: ( RebuildSortedHList (HListElems b)
-                  , IsHList a, IsHList b
-                  , AllAreFunctors (Dynamic t) (HListElems b)
-                  , Reflex t
-                  , HListElems a ~ FunctorList (Dynamic t) (HListElems b)
-                  ) => a -> Dynamic t b
-collectDynPure ds = fmap fromHList $ distributeFHListOverDynPure $ toFHList $ toHList ds
--}
-
-
-
-{-
--- | Collect a hetereogeneous list whose elements are all 'Dynamic's into a
--- single 'Dynamic' whose value represents the current values of all of the
--- input 'Dynamic's.
-distributeFHListOverDynPure :: (Reflex t, RebuildSortedHList l) => FHList (Dynamic t) l -> Dynamic t (HList l)
-distributeFHListOverDynPure l = fmap dmapToHList $ distributeDMapOverDynPure $ fhlistToDMap l
--}
+collectDynPureNP = npSequenceViaDMap distributeDMapOverDynPure . hliftA (Comp . fmap I)
 
