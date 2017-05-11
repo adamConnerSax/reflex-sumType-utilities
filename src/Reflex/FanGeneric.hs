@@ -40,6 +40,7 @@ import           Reflex.Class               (Event, EventSelector (..), Reflex,
                                              constDyn, fan, fmapMaybe, updated)
 import           Reflex.Dynamic             (Dynamic, distributeDMapOverDynPure)
 
+import           Generics.SOP.Instances     ()
 import qualified GHC.Generics               as GHCG
 
 newtype EventSelectorGeneric t xss  = EventSelectorGeneric
@@ -72,9 +73,9 @@ selectFromNP np tag = go np tag
 data FanExample = FEA | FEB | FEC C | FED Int Double deriving (GHCG.Generic)
 instance Generic FanExample
 
-data C = C1 Int Int | C2 Double Double deriving (GHCG.Generic)
+data C = C1 Int Int | C2 Double Double
 
-data CHolder = CHolder {c :: C } deriving (GHCG.Generic)
+data CHolder = CHolder {c :: C} deriving (GHCG.Generic)
 instance Generic CHolder
 
 data DLike = DLike Int Double deriving (GHCG.Generic)
@@ -102,3 +103,43 @@ evC = c <$> selectGeneric exampleFan cTag
 evDLike :: Reflex t => Event t DLike
 evDLike = selectGeneric exampleFan dTag
 
+{-
+
+newtype EventSelectorGeneric' t xss  = EventSelectorGeneric'
+  {
+    selectGeneric' :: forall a tla. (Reflex t, SListI2 xss, SListI tla, Generic a, (Code a) ~ Constructs tla, All2 Generic xss)
+                   => TypeListTag xss tla -> Event t a
+  }
+
+fanGeneric' :: forall t a. (Reflex t, Generic a, All2 Generic (Code a)) => Event t a -> EventSelectorGeneric' t (Code a)
+fanGeneric' ev =
+  let sListIC = Proxy :: Proxy SListI
+      npOfEvents :: NP (Event t :.: NP I) (Code a)
+      npOfEvents = hcliftA sListIC (Comp . fmapMaybe id . fmap unComp . unComp) $ functorToNP ev
+  in EventSelectorGeneric' $ \tag -> selectTypedFromNP' npOfEvents tag
+
+selectTypedFromNP' :: (Functor g, Generic a, (Code a) ~ Constructs xs, SListI xs, SListI2 xss, All2 Generic xss)
+  => NP (g :.: NP I) xss -> TypeListTag xss xs -> g a
+selectTypedFromNP' np tag = to . SOP . Z <$> selectFromNP np tag
+
+type family Constructs' (xs :: [*]) ::  [[*]] where
+  Constructs' (y ': '[]) = Code y
+  Constructs' x = x ': '[]
+
+data FanExample2 = F2EA | F2EB | FEQ Q  deriving (GHCG.Generic)
+instance Generic FanExample2
+
+data Q = Q1 Int Int | Q2 Double Double deriving (GHCG.Generic)
+instance Generic Q
+
+a2Tag = TLHead
+b2Tag = TLTail a2Tag
+qTag = TLTail b2Tag
+
+exampleFan' :: Reflex t => EventSelectorGeneric' t (Code FanExample2)
+exampleFan' = fanGeneric' (updated $ constDyn $ F2EA)
+
+evQ :: Reflex t => Event t Q
+evQ = selectGeneric' exampleFan' qTag
+
+-}
