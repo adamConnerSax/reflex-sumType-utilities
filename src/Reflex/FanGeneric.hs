@@ -20,7 +20,9 @@ Description: Generic (generics-sop) implementation of fan and select
 module Reflex.FanGeneric
   (
     EventSelectorGeneric
+  , selectGenericUnary
   , fanGeneric
+  , makeTags
   ) where
 
 import           Generics.SOP               ((:.:) (Comp), All2, Code, Generic,
@@ -31,8 +33,10 @@ import           Generics.SOP               ((:.:) (Comp), All2, Code, Generic,
 
 import           Generics.SOP.DMapUtilities (FunctorWrapTypeList,
                                              FunctorWrapTypeListOfLists,
-                                             TypeListTag (..), npReCompose,
-                                             npSequenceViaDMap, nsOfnpReCompose)
+                                             TypeListTag (..),
+                                             makeTypeListTagNP, npReCompose,
+                                             npSequenceViaDMap, npUnCompose,
+                                             nsOfnpReCompose)
 
 import           Generics.SOP.Distribute    (functorToNP)
 
@@ -48,6 +52,13 @@ newtype EventSelectorGeneric t xss  = EventSelectorGeneric
     selectGeneric :: forall a tla. (Reflex t, SListI2 xss, SListI tla, Generic a, (Code a) ~ Constructs tla) => TypeListTag xss tla -> Event t a
   }
 
+data UnaryHelper a = UnaryHelper { getUnary :: a } deriving (GHCG.Generic)
+instance Generic a => Generic (UnaryHelper a)
+
+selectGenericUnary::(Reflex t, SListI2 xss, SListI tla, Generic a, (Code (UnaryHelper a)) ~ Constructs tla)
+  => EventSelectorGeneric t xss -> TypeListTag xss tla -> Event t a
+selectGenericUnary esg  = fmap getUnary . selectGeneric esg
+
 fanGeneric :: forall t a. (Reflex t, Generic a) => Event t a -> EventSelectorGeneric t (Code a)
 fanGeneric ev =
   let sListIC = Proxy :: Proxy SListI
@@ -55,10 +66,17 @@ fanGeneric ev =
       npOfEvents = hcliftA sListIC (Comp . fmapMaybe id . fmap unComp . unComp) $ functorToNP ev
   in EventSelectorGeneric $ \tag -> selectTypedFromNP npOfEvents tag
 
+-- | make the product of all tags for b and then put them into a type, a, isomorphic to that product. Probably a tuple.
+makeTags :: forall a b. (Generic b, Generic a, (Code a) ~ Constructs (FunctorWrapTypeList (TypeListTag (Code b)) (Code b))) => Proxy b -> a
+makeTags _ =
+  let tags :: NP (TypeListTag (Code b)) (Code b)
+      tags = makeTypeListTagNP
+  in to . SOP . Z $ npUnCompose $ hliftA (Comp . I) tags
+
 selectTypedFromNP :: (Functor g, Generic a, (Code a) ~ Constructs xs, SListI xs, SListI2 xss) => NP (g :.: NP I) xss -> TypeListTag xss xs -> g a
 selectTypedFromNP np tag = to . SOP . Z <$> selectFromNP np tag
 
-type family Constructs (xs :: [*]) ::  [[*]] where
+type family Constructs (xs :: [k])  ::  [[k]] where
   Constructs x = x ': '[]
 
 selectFromNP :: forall g xss xs. (Functor g, SListI2 xss, SListI xs) => NP (g :.: NP I) xss -> TypeListTag xss xs -> g (NP I xs)
@@ -73,23 +91,13 @@ selectFromNP np tag = go np tag
 data FanExample = FEA | FEB | FEC C | FED Int Double deriving (GHCG.Generic)
 instance Generic FanExample
 
-data C = C1 Int Int | C2 Double Double
-
-data CHolder = CHolder {c :: C} deriving (GHCG.Generic)
-instance Generic CHolder
-
-data DLike = DLike Int Double deriving (GHCG.Generic)
-instance Generic DLike
+data C = C1 Int Int | C2 Double Double deriving (GHCG.Generic)
+instance Generic C
 
 exampleFan :: Reflex t => EventSelectorGeneric t (Code FanExample)
 exampleFan = fanGeneric (updated $ constDyn $ FEA)
 
---aTag, bTag, cTag, dTag :: TypeListTag (Code FanExample) a
-aTag = TLHead
-bTag = TLTail aTag
-cTag = TLTail bTag
-dTag = TLTail cTag
-
+(aTag, bTag, cTag, dTag) = makeTags (Proxy :: Proxy FanExample)
 
 evNullaryA :: Reflex t => Event t ()
 evNullaryA = selectGeneric exampleFan aTag
@@ -98,48 +106,15 @@ evNullaryB :: Reflex t => Event t ()
 evNullaryB = selectGeneric exampleFan bTag
 
 evC :: Reflex t => Event t C
-evC = c <$> selectGeneric exampleFan cTag
+evC = selectGenericUnary exampleFan cTag
+
+evD :: Reflex t => Event t (Int,Double)
+evD = selectGeneric exampleFan dTag
+
+data DLike = DLike Int Double deriving (GHCG.Generic)
+instance Generic DLike
 
 evDLike :: Reflex t => Event t DLike
 evDLike = selectGeneric exampleFan dTag
 
-{-
 
-newtype EventSelectorGeneric' t xss  = EventSelectorGeneric'
-  {
-    selectGeneric' :: forall a tla. (Reflex t, SListI2 xss, SListI tla, Generic a, (Code a) ~ Constructs tla, All2 Generic xss)
-                   => TypeListTag xss tla -> Event t a
-  }
-
-fanGeneric' :: forall t a. (Reflex t, Generic a, All2 Generic (Code a)) => Event t a -> EventSelectorGeneric' t (Code a)
-fanGeneric' ev =
-  let sListIC = Proxy :: Proxy SListI
-      npOfEvents :: NP (Event t :.: NP I) (Code a)
-      npOfEvents = hcliftA sListIC (Comp . fmapMaybe id . fmap unComp . unComp) $ functorToNP ev
-  in EventSelectorGeneric' $ \tag -> selectTypedFromNP' npOfEvents tag
-
-selectTypedFromNP' :: (Functor g, Generic a, (Code a) ~ Constructs xs, SListI xs, SListI2 xss, All2 Generic xss)
-  => NP (g :.: NP I) xss -> TypeListTag xss xs -> g a
-selectTypedFromNP' np tag = to . SOP . Z <$> selectFromNP np tag
-
-type family Constructs' (xs :: [*]) ::  [[*]] where
-  Constructs' (y ': '[]) = Code y
-  Constructs' x = x ': '[]
-
-data FanExample2 = F2EA | F2EB | FEQ Q  deriving (GHCG.Generic)
-instance Generic FanExample2
-
-data Q = Q1 Int Int | Q2 Double Double deriving (GHCG.Generic)
-instance Generic Q
-
-a2Tag = TLHead
-b2Tag = TLTail a2Tag
-qTag = TLTail b2Tag
-
-exampleFan' :: Reflex t => EventSelectorGeneric' t (Code FanExample2)
-exampleFan' = fanGeneric' (updated $ constDyn $ F2EA)
-
-evQ :: Reflex t => Event t Q
-evQ = selectGeneric' exampleFan' qTag
-
--}
