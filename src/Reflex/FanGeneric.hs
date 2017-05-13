@@ -55,7 +55,7 @@ newtype EventSelectorGeneric t xss  = EventSelectorGeneric
   }
 
 data UnaryHelper a = UnaryHelper { getUnary :: a } deriving (GHCG.Generic)
-instance Generic a => Generic (UnaryHelper a)
+instance Generic (UnaryHelper a)
 
 selectGenericUnary :: (Reflex t, SListI2 xss, SListI tla, Generic a, (Code (UnaryHelper a)) ~ Constructs tla)
   => EventSelectorGeneric t xss -> TypeListTag xss tla -> Event t a
