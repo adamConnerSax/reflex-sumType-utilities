@@ -23,6 +23,8 @@ module Reflex.FanGeneric
   , selectGenericUnary
   , fanGeneric
   , makeTags
+  , Generic
+  , Code
   ) where
 
 import           Generics.SOP               ((:.:) (Comp), All2, Code, Generic,
