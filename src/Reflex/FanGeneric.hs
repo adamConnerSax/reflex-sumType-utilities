@@ -22,7 +22,7 @@ module Reflex.FanGeneric
     EventSelectorGeneric (..)
   , selectGenericUnary
   , fanGeneric
-  , makeTags
+  , makeProductOfAllTypeListTags
   , Generic
   , Code
   ) where
@@ -36,6 +36,7 @@ import           Generics.SOP               ((:.:) (Comp), All2, Code, Generic,
 import           Generics.SOP.DMapUtilities (FunctorWrapTypeList,
                                              FunctorWrapTypeListOfLists,
                                              TypeListTag (..),
+                                             makeProductOfAllTypeListTags,
                                              makeTypeListTagNP, npReCompose,
                                              npSequenceViaDMap, npUnCompose,
                                              nsOfnpReCompose)
@@ -68,12 +69,14 @@ fanGeneric ev =
       npOfEvents = hcliftA sListIC (Comp . fmapMaybe id . fmap unComp . unComp) $ functorToNP ev
   in EventSelectorGeneric $ \tag -> selectTypedFromNP npOfEvents tag
 
+{-
 -- | make the product of all tags for b and then put them into a type, a, isomorphic to that product. Probably a tuple.
 makeTags :: forall a b. (Generic b, Generic a, (Code a) ~ Constructs (FunctorWrapTypeList (TypeListTag (Code b)) (Code b))) => Proxy b -> a
 makeTags _ =
   let tags :: NP (TypeListTag (Code b)) (Code b)
       tags = makeTypeListTagNP
   in to . SOP . Z $ npUnCompose $ hliftA (Comp . I) tags
+-}
 
 selectTypedFromNP :: (Functor g, Generic a, (Code a) ~ Constructs xs, SListI xs, SListI2 xss) => NP (g :.: NP I) xss -> TypeListTag xss xs -> g a
 selectTypedFromNP np tag = to . SOP . Z <$> selectFromNP np tag
@@ -99,7 +102,7 @@ instance Generic C
 exampleFan :: Reflex t => EventSelectorGeneric t (Code FanExample)
 exampleFan = fanGeneric (updated $ constDyn $ FEA)
 
-(aTag, bTag, cTag, dTag) = makeTags (Proxy :: Proxy FanExample)
+(aTag, bTag, cTag, dTag) = makeProductOfAllTypeListTags (Proxy :: Proxy FanExample)
 
 evNullaryA :: Reflex t => Event t ()
 evNullaryA = selectGeneric exampleFan aTag
