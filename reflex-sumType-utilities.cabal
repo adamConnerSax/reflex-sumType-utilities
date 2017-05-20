@@ -33,8 +33,10 @@ library
                        Reflex.Dynamic.CollectDyn
                        Reflex.Dynamic.FactorDyn
                        Reflex.FanGeneric
+                       Reflex.Requester.SumTypeSupport
   other-modules:       Reflex.Dynamic.Common
   build-depends:       base >= 4.7 && < 5
+                     , aeson
                      , reflex
                      , generics-sop
                      , dependent-sum
