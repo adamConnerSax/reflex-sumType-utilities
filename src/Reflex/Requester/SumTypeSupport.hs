@@ -13,8 +13,9 @@ module Reflex.Requester.SumTypeSupport
   ) where
 
 import qualified Data.Dependent.Sum         as DS
-import           Generics.SOP               (I (..), NP (..), SList (..),
-                                             SListI (..), unI)
+import           Generics.SOP               (I (..), NP (..), NS (..),
+                                             SList (..), SListI (..), hapInjs,
+                                             unI)
 import           Generics.SOP.DMapUtilities (TypeListContains, TypeListTag (..),
                                              makeTypeListTagNP)
 
@@ -37,7 +38,6 @@ indexToTag n = go sList n
     go SNil _ = error "impossible"
     go SCons 0 = error "impossible"
     go SCons n = TLTail $ go sList (n-1)
--}
 
 indexToTag :: forall xs x. (TypeListContains xs x ~ True) => Int -> TypeListTag xs x
 indexToTag = go
@@ -46,8 +46,6 @@ indexToTag = go
     go 0 = TLHead
     go n = TLTail $ go (n-1)
 
-
-{-
 indexToTag :: forall xs x. SListI xs => Int -> TypeListTag xs x
 indexToTag n = go sList n makeTypeListTagNP
   where
@@ -56,8 +54,21 @@ indexToTag n = go sList n makeTypeListTagNP
     go SNil _ _ = error "bad index (n > number of constructors?) in indexToTag."
     go SCons 0 (t :* npTail) = t
     go SCons n (t :* npTail) = go sList (n-1) npTail
+
+indexToTag :: ({- TypeListContains xs x ~ True,-} SListI xs) => [TypeListTag xs x]
+indexToTag = go sList
+  where
+    safeIndex l n = if n >= 0 && n < length l then (Just $ l !! n) else Nothing
+    go :: forall ys y. ({-TypeListContains ys y ~ True,-} SListI ys) => SList ys -> [TypeListTag ys y]
+    go SNil = []
+    go SCons = TLHead : (TLTail <$> go sList)
 -}
 
+indexToNS :: SListI xs => Int -> NS (TypeListTag xs) xs
+indexToNS n = hapInjs makeTypeListTagNP !! n
+
+indexToDSum :: SListI xs => Int -> DSum (TypeListTag xs) (TypeListTag xs)
+indexToDSum 
 -- since it's one value should we store as object or array?
 instance ToJSON (TypeListTag xs x) where
   toJSON tag = object ["index" .= tagToIndex tag]
