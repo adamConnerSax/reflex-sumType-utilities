@@ -1,11 +1,15 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE UndecidableInstances  #-}
 {-|
 Module: Reflex.Requester.SumTypeSupport
 Description: Aeson ToJSON and FromJSON instances for the TypeListTag type and DSum for use in websocket communication
@@ -15,15 +19,24 @@ module Reflex.Requester.SumTypeSupport
   ) where
 
 import qualified Data.Dependent.Sum         as DS
-import           Generics.SOP               (I (..), NP (..), NS (..),
+import           Generics.SOP               (All, Code, Generic, I (..), K (..),
+                                             NP (..), NS (..), Proxy (..),
                                              SList (..), SListI (..),
-                                             Shape (..), hapInjs, shape, unI)
+                                             Shape (..), hapInjs, hcmap, hmap,
+                                             hsequence, shape, unI, unK)
 import           Generics.SOP.DMapUtilities (TypeListContains, TypeListTag (..),
-                                             makeTypeListTagNP)
+                                             dSumToNS, makeTypeListTagNP,
+                                             nsToDSum)
+import           Generics.SOP.NS            (collapse_NS, index_NS)
 
-import           Data.Aeson                 (FromJSON (..), ToJSON (..), object,
-                                             pairs, withObject, (.:), (.=))
+import           Data.Aeson                 (FromJSON (..), ToJSON (..), Value,
+                                             object, pairs, withObject, (.:),
+                                             (.=))
+import           Data.Functor.Identity      (Identity (Identity, runIdentity))
+import qualified Data.HashMap.Lazy          as HM
 
+
+{-
 tagToIndex::TypeListTag xs x -> Int
 tagToIndex = go 0
   where
@@ -31,47 +44,8 @@ tagToIndex = go 0
     go n TLHead           = n
     go n (TLTail tagTail) = go (n+1) tagTail
 
-{-
-indexToTag :: SListI xs => Int -> TypeListTag xs x
-indexToTag n = go sList n
-  where
-    go :: SListI ys => SList ys -> Int -> TypeListTag ys x
-    go SNil 0 = TLHead
-    go SNil _ = error "impossible"
-    go SCons 0 = error "impossible"
-    go SCons n = TLTail $ go sList (n-1)
-
-indexToTag :: forall xs x. (TypeListContains xs x ~ True) => Int -> TypeListTag xs x
-indexToTag = go
-  where
-    go :: forall ys y. (TypeListContains ys y ~ True) => Int -> TypeListTag ys y
-    go 0 = TLHead
-    go n = TLTail $ go (n-1)
-
-indexToTag :: forall xs x. SListI xs => Int -> TypeListTag xs x
-indexToTag n = go sList n makeTypeListTagNP
-  where
-    go :: forall ys y. SListI ys => SList ys -> Int -> NP (TypeListTag ys) ys -> TypeListTag ys y
-    go _ _ Nil = error "bad index (n > number of constructors?) in indexToTag."
-    go SNil _ _ = error "bad index (n > number of constructors?) in indexToTag."
-    go SCons 0 (t :* npTail) = t
-    go SCons n (t :* npTail) = go sList (n-1) npTail
-
-indexToTag :: ({- TypeListContains xs x ~ True,-} SListI xs) => [TypeListTag xs x]
-indexToTag = go sList
-  where
-    safeIndex l n = if n >= 0 && n < length l then (Just $ l !! n) else Nothing
-    go :: forall ys y. ({-TypeListContains ys y ~ True,-} SListI ys) => SList ys -> [TypeListTag ys y]
-    go SNil = []
-    go SCons = TLHead : (TLTail <$> go sList)
--}
-
-data TagWrapper (xs :: [k]) where
+data TagWrapper (xs :: [*]) where
   MkTagWrapper :: TypeListTag xs x -> TagWrapper xs
-
-data TypeListLength (xs :: [k]) where
-  Z :: TypeListLength '[]
-  S :: TypeListLength xs -> TypeListLength (x ': xs)
 
 indexToTag :: SListI xs => Int -> TagWrapper xs
 indexToTag n = go sList n
@@ -83,14 +57,63 @@ indexToTag n = go sList n
       MkTagWrapper tail -> MkTagWrapper $ TLTail tail
 
 
-indexToNS :: SListI xs => Int -> NS (TypeListTag xs) xs
-indexToNS n = hapInjs makeTypeListTagNP !! n
-
 -- since it's one value should we store as object or array?
-instance ToJSON (TypeListTag xs x) where
-  toJSON tag = object ["index" .= tagToIndex tag]
-  toEncoding tag = pairs ("index" .= tagToIndex tag)
+instance ToJSON (TagWrapper xs) where
+  toJSON (MkTagWrapper tag) = object ["index" .= tagToIndex tag]
+  toEncoding (MkTagWrapper tag) = pairs ("index" .= tagToIndex tag)
 
-instance (TypeListContains xs x ~ True) => FromJSON (TypeListTag xs x) where
-  parseJSON = withObject "TypeListTag" $ \v -> indexToTag <$> v .: "index"
+instance SListI xs => FromJSON (TagWrapper xs) where
+  parseJSON = withObject "TagWrapper" $ \v -> indexToTag <$> v .: "index"
 
+class GToJSON t where
+  gToJSON :: t a -> Value
+--  gToEncoding :: t a -> Encoding
+
+instance GToJSON (TypeListTag xs) where
+  gToJSON tag = object ["index" .= tagToIndex tag]
+
+class GToJSON tag => ToJSONTag tag f where
+  toTaggedJSON :: tag a -> f a -> Value
+
+-}
+
+instance All ToJSON xs => ToJSON (NS I xs) where
+  toJSON ns =
+    let toJSONC = Proxy :: Proxy ToJSON
+        val = collapse_NS $ hcmap toJSONC (K . toJSON . unI) ns
+    in  object ["tag" .= index_NS ns, "value" .= val]
+
+instance All ToJSON xs => ToJSON (DS.DSum (TypeListTag xs) Identity) where
+  toJSON = toJSON . hmap (I . runIdentity) . dSumToNS
+
+
+indexToNS :: All FromJSON xs => Int -> Value -> NS (K Value) xs
+indexToNS n v = go sList n v
+  where
+    go :: SListI ys => SList ys -> Int -> Value -> NS (K Value) ys
+    go SNil _ _ = error "Bad index in indexToNS"
+    go SCons 0 v = Z $ K v
+    go SCons n v = S $ go sList (n-1) v
+
+
+instance All FromJSON xs => FromJSON (NS I xs) where
+  parseJSON = withObject "NS I" $ \v -> do
+    tag <- v .: "tag"
+    let (Just unParsedValue) = HM.lookup "value" v
+        fromJSONC = Proxy :: Proxy FromJSON
+        ns = indexToNS tag unParsedValue
+    hsequence $ hcmap fromJSONC (parseJSON . unK) ns
+
+instance All FromJSON xs => FromJSON (DS.DSum (TypeListTag xs) Identity) where
+  parseJSON v = nsToDSum . hmap (Identity . unI ) <$> parseJSON v
+
+--instance ToJSONTag (TypeListTag xs) Identity where
+--  toTaggedJSON tag ia = object [ "tag" .= gToJSON tag, "value" .= toJSON (runIdentity ia) ]
+
+
+{-
+instance All ToJSON xs => ToJSON (DS.DSum (TypeListTag xs) Identity) where
+  toJSON (tag DS.:=> ia) = object ["tag" .= toJSON (MkTagWrapper tag)
+                                  , "value" .= toJSON (runIdentity ia)
+                                  ]
+-}

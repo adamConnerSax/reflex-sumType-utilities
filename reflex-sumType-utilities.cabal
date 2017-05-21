@@ -37,6 +37,7 @@ library
   other-modules:       Reflex.Dynamic.Common
   build-depends:       base >= 4.7 && < 5
                      , aeson
+                     , unordered-containers
                      , reflex
                      , generics-sop
                      , dependent-sum
