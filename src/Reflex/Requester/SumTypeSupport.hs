@@ -14,8 +14,8 @@ module Reflex.Requester.SumTypeSupport
 
 import qualified Data.Dependent.Sum         as DS
 import           Generics.SOP               (I (..), NP (..), NS (..),
-                                             SList (..), SListI (..), hapInjs,
-                                             unI)
+                                             SList (..), SListI (..),
+                                             Shape (..), hapInjs, shape, unI)
 import           Generics.SOP.DMapUtilities (TypeListContains, TypeListTag (..),
                                              makeTypeListTagNP)
 
@@ -26,7 +26,7 @@ tagToIndex::TypeListTag xs x -> Int
 tagToIndex = go 0
   where
     go :: Int -> TypeListTag ys x -> Int
-    go n TLHead = n
+    go n TLHead           = n
     go n (TLTail tagTail) = go (n+1) tagTail
 
 {-
@@ -64,11 +64,25 @@ indexToTag = go sList
     go SCons = TLHead : (TLTail <$> go sList)
 -}
 
+data TagWrapper (xs :: [k]) where
+  MkTagWrapper :: TypeListTag xs x -> TagWrapper xs
+
+data TypeListLength (xs :: [k]) where
+  Z :: Length '[]
+  S :: Length xs -> Length (x ': xs)
+
+indexToTag :: Int -> Length xs -> TagWrapper xs
+indexToTag n = go sList n
+  where
+    go :: SList ys -> Int -> TagWrapper
+    go SNil _  = error "End of type-list reached. Index larger than list?"
+    go SCons 0 = MkTagWrapper TLHead
+    go SCons n = TLTail $ go subShape (n-1)
+
+
 indexToNS :: SListI xs => Int -> NS (TypeListTag xs) xs
 indexToNS n = hapInjs makeTypeListTagNP !! n
 
-indexToDSum :: SListI xs => Int -> DSum (TypeListTag xs) (TypeListTag xs)
-indexToDSum 
 -- since it's one value should we store as object or array?
 instance ToJSON (TypeListTag xs x) where
   toJSON tag = object ["index" .= tagToIndex tag]
