@@ -100,6 +100,15 @@ data B = BC Char deriving (GHCG.Generic, Show)
 instance ToJSON B
 instance FromJSON B
 
+instance (All2 ToJSON xss, SListI2 xss) => ToJSON (DS.DSum (TypeListTag xss) (NP I)) where
+  toJSON = toJSON . SOP . dSumToNS
+
+instance (All2 FromJSON xss, SListI2 xss) => FromJSON (DS.DSum (TypeListTag xss) (NP I)) where
+  parseJSON = fmap (nsToDSum . unSOP) . parseJSON
+
+toDSum :: Generic a => a -> DS.DSum (TypeListTag (Code a)) (NP I)
+toDSum = nsToDSum . unSOP . from
+
 -- NB: This can fail if the index is >= length of the type-list, hence the Maybe return type
 -- NB: This can fail if the list [a] is shorter then the type-list for the NP
 indexToSOP :: SListI2 xss => Int -> [a] -> Maybe (SOP (K a) xss)
