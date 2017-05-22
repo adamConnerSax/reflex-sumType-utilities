@@ -42,6 +42,8 @@ library
                      , generics-sop
                      , dependent-sum
                      , perConstructor-sop
+                     , bytestring
+                     
   default-language:    Haskell2010
 
 
