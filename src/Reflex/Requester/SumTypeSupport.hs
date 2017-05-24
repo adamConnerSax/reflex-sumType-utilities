@@ -57,15 +57,6 @@ instance All FromJSON xs => FromJSON (NP I xs) where
       Just npVal -> hsequence $ hcmap (Proxy :: Proxy FromJSON) (parseJSON . unK) npVal
       Nothing -> fail "parsed list too short in FromJSON (NP I xs)"
 
-buildNPKFromList :: SListI xs => [a] -> Maybe (NP (K a) xs)
-buildNPKFromList as = go sList as
-  where
-    go :: SListI ys => SList ys -> [a] -> Maybe (NP (K a) ys)
-    go SNil _  = Just Nil
-    go SCons [] = Nothing
-    go SCons (a : as') = case go sList as' of
-      Just npTail -> Just $ K a :* npTail
-      Nothing -> Nothing
 
 instance (SListI2 xss, All2 ToJSON xss) => ToJSON (SOP I xss) where
   toJSON sop =
@@ -82,23 +73,25 @@ instance (SListI2 xss, All2 FromJSON xss) => FromJSON (SOP I xss) where
       Nothing -> fail "Error in indexToSOP.  Could be bad index or val list too short."
       Just sopVal -> hsequence $ hcmap (Proxy :: Proxy FromJSON) (parseJSON . unK) sopVal
 
+buildNPKFromList :: SListI xs => [a] -> Maybe (NP (K a) xs)
+buildNPKFromList as = go sList as
+  where
+    go :: SListI ys => SList ys -> [a] -> Maybe (NP (K a) ys)
+    go SNil _  = Just Nil
+    go SCons [] = Nothing
+    go SCons (a : as') = case go sList as' of
+      Just npTail -> Just $ K a :* npTail
+      Nothing     -> Nothing
 
-encodeGeneric :: (Generic a, All2 ToJSON (Code a)) => a -> LB.ByteString
-encodeGeneric = encode . from
-
-decodeGeneric :: (Generic a, All2 FromJSON (Code a)) => LB.ByteString -> Maybe a
-decodeGeneric  = fmap to . decode
-
-data Example = Ex1 A | Ex2 B | Ex3 Int Double deriving (GHCG.Generic, Show)
-instance Generic Example
-
-data A = AC Int deriving (GHCG.Generic, Show)
-instance ToJSON A
-instance FromJSON A
-
-data B = BC Char deriving (GHCG.Generic, Show)
-instance ToJSON B
-instance FromJSON B
+-- NB: This can fail if the index is >= length of the type-list, hence the Maybe return type
+-- NB: This can fail if the list [a] is shorter then the type-list for the NP
+indexToSOP :: SListI2 xss => Int -> [a] -> Maybe (SOP (K a) xss)
+indexToSOP n xs = SOP <$> go sList n xs
+  where
+    go :: SListI2 yss => SList yss -> Int -> [a] -> Maybe (NS (NP (K a)) yss)
+    go SNil _ _   = Nothing -- "Bad index in indexToNS"
+    go SCons 0 xs = buildNPKFromList xs >>= Just . Z
+    go SCons n xs = go sList (n-1) xs >>= Just . S
 
 instance (All2 ToJSON xss, SListI2 xss) => ToJSON (DS.DSum (TypeListTag xss) (NP I)) where
   toJSON = toJSON . SOP . dSumToNS
@@ -109,18 +102,23 @@ instance (All2 FromJSON xss, SListI2 xss) => FromJSON (DS.DSum (TypeListTag xss)
 toDSum :: Generic a => a -> DS.DSum (TypeListTag (Code a)) (NP I)
 toDSum = nsToDSum . unSOP . from
 
--- NB: This can fail if the index is >= length of the type-list, hence the Maybe return type
--- NB: This can fail if the list [a] is shorter then the type-list for the NP
-indexToSOP :: SListI2 xss => Int -> [a] -> Maybe (SOP (K a) xss)
-indexToSOP n xs = SOP <$> go sList n xs
-  where
-    go :: SListI2 yss => SList yss -> Int -> [a] -> Maybe (NS (NP (K a)) yss)
-    go SNil _ _ = Nothing -- "Bad index in indexToNS"
-    go SCons 0 xs = buildNPKFromList xs >>= Just . Z
-    go SCons n xs = go sList (n-1) xs >>= Just . S
+fromDSum :: Generic a => DS.DSum (TypeListTag (Code a)) (NP I) -> a
+fromDSum = to . SOP . dSumToNS
 
 
 
+{-
+-- but this should give us the simpler versions below.
+-- And yet these don't work because (Code a) is a type family, and thus not injective.
+-- Two different types a may have the same (Code a).
+-- E.g., (a,b) and data MyType = MyType a b
+instance (Generic a, ToJSON a) => ToJSON (DS.DSum (TypeListTag (Code a)) (NP I)) where
+  toJSON = toJSON . fromDSum
+  toEncoding = toEncoding . fromDSum
+
+instance (Generic a, FromJSON a) => FromJSON (DS.DSum (TypeListTag (Code a)) (NP I)) where
+  parseJSON = fmap toDSum . parseJSON
+-}
 {-
 instance All ToJSON xs => ToJSON (NS I xs) where
   toJSON ns =
@@ -198,9 +196,21 @@ toDSum = from
 
 
 -- an example
+encodeGeneric :: (Generic a, All2 ToJSON (Code a)) => a -> LB.ByteString
+encodeGeneric = encode . from
 
-data Example = Ex1 A | Ex2 B | Ex3 Int Double deriving (GHCG.Generic)
+decodeGeneric :: (Generic a, All2 FromJSON (Code a)) => LB.ByteString -> Maybe a
+decodeGeneric  = fmap to . decode
+
+data Example = Ex1 A | Ex2 B | Ex3 Int Double deriving (GHCG.Generic, Show)
 instance Generic Example
 
+data A = AC Int deriving (GHCG.Generic, Show)
+instance ToJSON A
+instance FromJSON A
+
+data B = BC Char deriving (GHCG.Generic, Show)
+instance ToJSON B
+instance FromJSON B
 -}
 

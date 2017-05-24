@@ -35,11 +35,12 @@ import           Generics.SOP               ((:.:) (Comp), All2, Code, Generic,
 
 import           Generics.SOP.DMapUtilities (FunctorWrapTypeList,
                                              FunctorWrapTypeListOfLists,
+                                             TypeListConstructs,
                                              TypeListTag (..),
                                              makeProductOfAllTypeListTags,
                                              makeTypeListTagNP, npReCompose,
                                              npSequenceViaDMap, npUnCompose,
-                                             nsOfnpReCompose)
+                                             nsOfnpReCompose, selectTypedFromNP)
 
 import           Generics.SOP.Distribute    (functorToNP)
 
@@ -52,13 +53,13 @@ import qualified GHC.Generics               as GHCG
 
 newtype EventSelectorGeneric t xss  = EventSelectorGeneric
   {
-    selectGeneric :: forall a tla. (Reflex t, SListI2 xss, SListI tla, Generic a, (Code a) ~ Constructs tla) => TypeListTag xss tla -> Event t a
+    selectGeneric :: forall a tla. (Reflex t, SListI2 xss, SListI tla, Generic a, (Code a) ~ TypeListConstructs tla) => TypeListTag xss tla -> Event t a
   }
 
 data UnaryHelper a = UnaryHelper { getUnary :: a } deriving (GHCG.Generic)
 instance Generic (UnaryHelper a)
 
-selectGenericUnary :: (Reflex t, SListI2 xss, SListI tla,  (Code (UnaryHelper a)) ~ Constructs tla)
+selectGenericUnary :: (Reflex t, SListI2 xss, SListI tla,  (Code (UnaryHelper a)) ~ TypeListConstructs tla)
   => EventSelectorGeneric t xss -> TypeListTag xss tla -> Event t a
 selectGenericUnary esg  = fmap getUnary . selectGeneric esg
 
@@ -70,19 +71,14 @@ fanGeneric ev =
   in EventSelectorGeneric $ \tag -> selectTypedFromNP npOfEvents tag
 
 {-
--- | make the product of all tags for b and then put them into a type, a, isomorphic to that product. Probably a tuple.
-makeTags :: forall a b. (Generic b, Generic a, (Code a) ~ Constructs (FunctorWrapTypeList (TypeListTag (Code b)) (Code b))) => Proxy b -> a
-makeTags _ =
-  let tags :: NP (TypeListTag (Code b)) (Code b)
-      tags = makeTypeListTagNP
-  in to . SOP . Z $ npUnCompose $ hliftA (Comp . I) tags
--}
-
-selectTypedFromNP :: (Functor g, Generic a, (Code a) ~ Constructs xs, SListI xs, SListI2 xss) => NP (g :.: NP I) xss -> TypeListTag xss xs -> g a
+selectTypedFromNP :: (Functor g, Generic a, Code a ~ Constructs xs, SListI xs, SListI2 xss) => NP (g :.: NP I) xss -> TypeListTag xss xs -> g a
 selectTypedFromNP np tag = to . SOP . Z <$> selectFromNP np tag
 
 type family Constructs (xs :: [k])  ::  [[k]] where
   Constructs x = x ': '[]
+--  Constructs '[] = '[]
+--  Constructs (x ': '[]) = Code x
+--  Constructs (x ': y ': xs) = (x ': y ': xs) ': '[]
 
 selectFromNP :: forall g xss xs. (Functor g, SListI2 xss, SListI xs) => NP (g :.: NP I) xss -> TypeListTag xss xs -> g (NP I xs)
 selectFromNP np tag = go np tag
@@ -91,6 +87,7 @@ selectFromNP np tag = go np tag
     go Nil _ = error "Reached the end of typelist before the tag was satified."
     go (gy :* _) TLHead = unComp gy
     go (_ :* npTail) (TLTail tailTag) = go npTail tailTag
+-}
 
 -- for example
 data FanExample = FEA | FEB | FEC C | FED Int Double deriving (GHCG.Generic)
