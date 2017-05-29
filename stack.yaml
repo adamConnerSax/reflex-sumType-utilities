@@ -10,14 +10,14 @@ packages:
 #  extra-dep: true
 - location:
     git: https://github.com/ghcjs/ghcjs-dom
-    commit: "49c3e1cd02a350e609b7fb163a0cac38e3099160"
+    commit: "3c495cd71b2bdcc2013d305d2fab944fd9b5650a"
   extra-dep: true
   subdirs:
   - ghcjs-dom
   - ghcjs-dom-jsaddle
 - location:
     git: https://github.com/ghcjs/jsaddle
-    commit: "c9e2df168be43d82d939ac1918f6be465b83d477"
+    commit: "85c8fb14542012667ce4bb202ca63903b2656043"
   extra-dep: true
   subdirs:
   - jsaddle
@@ -25,15 +25,15 @@ packages:
   - jsaddle-warp
 - location:
     git: https://github.com/ghcjs/jsaddle-dom
-    commit: "023dc3135192923ef2291d184d4bd737601353c7"
+    commit: "85b1f1f0235d38648e716875d88c29729bd47386"
   extra-dep: true  
 - location:
     git: https://github.com/reflex-frp/reflex
-    commit: "8c8bce9de5ec35e7a5175b0538a5534d25cfe7b5"
+    commit: "75426f7c85e83db3365a3dac9c3ac67710fed2de"
   extra-dep: true
 - location:
     git: https://github.com/reflex-frp/reflex-dom
-    commit: "3eef4df70eb656fc33d6147633b625342198b811"
+    commit: "cb342ab21cbc3b0f8a5a1c9bc2740f9ef77d9e31"
   extra-dep: true
   subdirs:
   - reflex-dom-core
@@ -45,8 +45,6 @@ allow-newer: true
 extra-deps:
  - prim-uniq-0.1.0.1
  - ref-tf-0.4.0.1
-# - ghcjs-dom-0.7.0.4
-# - ghcjs-dom-jsaddle-0.7.0.3
  - zenc-0.1.1
  - dependent-sum-template-0.0.0.5
 
