@@ -1,38 +1,18 @@
-resolver: lts-8.11
+resolver:
+  name: jsaddle-snapshot
+  location: ../jsaddle-snapshot.yaml
 
 # A package marked 'extra-dep: true' will only be built if demanded by a
 # non-dependency (i.e. a user package), and its test suites and benchmarks
 # will not be run. This is useful for tweaking upstream packages.
 packages:
-#- location:
-#    git: https://github.com/adamConnerSax/perConstructor-sop
-#    commit: "7ef82e21de0cf561a8397821f23d8916f3760360"
-#  extra-dep: true
-- location:
-    git: https://github.com/ghcjs/ghcjs-dom
-    commit: "3c495cd71b2bdcc2013d305d2fab944fd9b5650a"
-  extra-dep: true
-  subdirs:
-  - ghcjs-dom
-  - ghcjs-dom-jsaddle
-- location:
-    git: https://github.com/ghcjs/jsaddle
-    commit: "85c8fb14542012667ce4bb202ca63903b2656043"
-  extra-dep: true
-  subdirs:
-  - jsaddle
-  - jsaddle-wkwebview
-  - jsaddle-warp
-- location:
-    git: https://github.com/ghcjs/jsaddle-dom
-    commit: "85b1f1f0235d38648e716875d88c29729bd47386"
-  extra-dep: true  
 - location:
     git: https://github.com/reflex-frp/reflex
     commit: "75426f7c85e83db3365a3dac9c3ac67710fed2de"
   extra-dep: true
 - location:
     git: https://github.com/reflex-frp/reflex-dom
+    commit: "c86fee7a7d731f50aa100b32e79010dd69e11409"
     commit: "cb342ab21cbc3b0f8a5a1c9bc2740f9ef77d9e31"
   extra-dep: true
   subdirs:
@@ -43,11 +23,6 @@ packages:
 
 allow-newer: true
 extra-deps:
- - prim-uniq-0.1.0.1
- - ref-tf-0.4.0.1
- - zenc-0.1.1
- - dependent-sum-template-0.0.0.5
-
 
 
 # Override default flag values for local packages and extra-deps
