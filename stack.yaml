@@ -1,6 +1,5 @@
-resolver:
-  name: jsaddle-snapshot
-  location: ../jsaddle-snapshot.yaml
+require-stack-version: ">=1.5"
+resolver: "../stack-custom-snapshots/jsaddle/jsaddle9-ghc8.2.2-snapshot.yaml"
 
 # A package marked 'extra-dep: true' will only be built if demanded by a
 # non-dependency (i.e. a user package), and its test suites and benchmarks
@@ -8,12 +7,15 @@ resolver:
 packages:
 - location:
     git: https://github.com/reflex-frp/reflex
-    commit: "75426f7c85e83db3365a3dac9c3ac67710fed2de"
+    commit: "5add4130db67159fc08b90f795d38d8ba15bb437"
+#    commit: "af07fd8462bb0a87d132c20b1e15f4a870759eff" # generics-sop branch        
+#    commit: "75426f7c85e83db3365a3dac9c3ac67710fed2de"
   extra-dep: true
 - location:
     git: https://github.com/reflex-frp/reflex-dom
-    commit: "c86fee7a7d731f50aa100b32e79010dd69e11409"
-    commit: "cb342ab21cbc3b0f8a5a1c9bc2740f9ef77d9e31"
+    commit: "986e1cfb514e8a8832479924166920f783787742" # newer develop    
+#    commit: "c86fee7a7d731f50aa100b32e79010dd69e11409"
+#    commit: "cb342ab21cbc3b0f8a5a1c9bc2740f9ef77d9e31"
   extra-dep: true
   subdirs:
   - reflex-dom-core

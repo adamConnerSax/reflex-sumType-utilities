@@ -25,7 +25,6 @@ flag ghcjs
   description: Use GHCJS
   default: False
 
-                     
 library
   hs-source-dirs:      src
   exposed-modules:     Reflex.Dynamic.PerConstructor

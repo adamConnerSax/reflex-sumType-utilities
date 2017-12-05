@@ -18,7 +18,7 @@ import           Reflex
 import           Reflex.Dom                       hiding (mainWidget, run)
 import           Reflex.Dom.Core                  (mainWidget)
 import           Reflex.Dom.Old                   (MonadWidget)
-import           Reflex.Dom.Time                  (delay)
+import           Reflex.Time                      (delay)
 
 import           Control.Monad.Fix                (MonadFix)
 

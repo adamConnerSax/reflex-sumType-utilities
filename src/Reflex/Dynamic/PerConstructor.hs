@@ -1,9 +1,9 @@
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE PolyKinds                  #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeOperators         #-}
 module Reflex.Dynamic.PerConstructor
   (
     DynMaybe
@@ -25,28 +25,31 @@ module Reflex.Dynamic.PerConstructor
   , HasDatatypeInfo
   ) where
 
-import           Reflex.Dynamic.Common (DynMaybe,DynMBuildable(dynMBuild),AllDynMBuildable)
+import           Reflex.Dynamic.Common       (AllDynMBuildable,
+                                              DynMBuildable (dynMBuild),
+                                              DynMaybe)
 
 import           Control.Monad               (join)
-import           Data.Functor.Compose        (Compose (Compose,getCompose))
+import           Data.Functor.Compose        (Compose (Compose, getCompose))
 
-import           Generics.SOP                (HasDatatypeInfo, Code, Generic, ConstructorName,
-                                              All2, (:.:)(..), unComp, 
-                                              hsequence, hcliftA, hmap, unPOP, 
-                                              SListI, Proxy (Proxy),I)
+import           Generics.SOP                ((:.:) (..), All2, Code,
+                                              ConstructorName, Generic,
+                                              HasDatatypeInfo, I, Proxy (Proxy),
+                                              SListI, hcliftA, hmap, hsequence,
+                                              unComp, unPOP)
 import           Generics.SOP.NP             (NP, sequence'_NP, sequence_NP)
 
 
-import           Generics.SOP.PerConstructor (functorToPerConstructorList
-                                             , functorDoPerConstructorWithNames
-                                             , constructorNameList
-                                             , MapFieldsAndSequence
-                                             , Dict(..)
-                                             , mapFieldsFromConstraintAndCustomSequence)
-import           Generics.SOP.DMapUtilities (npSequenceViaDMap)
+import           Generics.SOP.DMapUtilities  (npSequenceViaDMap)
+import           Generics.SOP.PerConstructor (Dict (..), MapFieldsAndSequence,
+                                              constructorNameList,
+                                              functorDoPerConstructorWithNames,
+                                              functorToPerConstructorList,
+                                              mapFieldsFromConstraintAndCustomSequence)
 
-import           Reflex                      (Dynamic, Event, Reflex
-                                             , fmapMaybe, leftmost, updated, distributeDMapOverDynPure)
+import           Reflex                      (Dynamic, Event, Reflex,
+                                              distributeDMapOverDynPure,
+                                              fmapMaybe, leftmost, updated)
 
 
 -- pure
@@ -136,7 +139,7 @@ dynMBuildableToConWidgets::forall t m a.( Reflex t
                                         , AllDynMBuildable t m a)
   =>DynMaybe t a -> [ConWidget t m a]
 dynMBuildableToConWidgets = dynMaybeToConWidgets widgetFieldsAndSequence where
-  widgetFieldsAndSequence = mapFieldsFromConstraintAndCustomSequence (Dict :: Dict (All2 (DynMBuildable t m)) (Code a)) (Compose . dynMBuild) sequenceViaDMap 
+  widgetFieldsAndSequence = mapFieldsFromConstraintAndCustomSequence (Dict :: Dict (All2 (DynMBuildable t m)) (Code a)) (Compose . dynMBuild) sequenceViaDMap
 
 
 dynMBuildableToWidgetEvent::(Reflex t, Generic a,HasDatatypeInfo a, Applicative m,AllDynMBuildable t m a)
@@ -145,4 +148,4 @@ dynMBuildableToWidgetEvent dynMA =
   let conWidgets = dynMBuildableToConWidgets dynMA
       f (ConWidget _ ev w) = w <$ ev
   in leftmost $ f <$> conWidgets
-  
+
