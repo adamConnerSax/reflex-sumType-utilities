@@ -50,6 +50,9 @@ import qualified GHC.Generics                     as GHC
 main::IO ()
 main = do
   let port :: Int = 3702
+  -- The following line may not work on all systems.  It's intended to open a browser pointing at the right port
+  -- If you get a crash on running this exe, try commenting out the line and then opening a browser manually and
+  -- pointing it at the port above.
   pHandle <- spawnProcess "open" ["http://localhost:" ++ show port]
   run port testWidget
 

@@ -5,3 +5,8 @@ reflex-sumtype-utilities
 2. Some extra functionality to automatically handle the widget building case.  Takes a function which can build a widget for each constructor (by building widgets for each field and then sequencing the results) and a Dynamic t (Maybe a) and returns a list of (name,event, widget) where name is the name of the constructor (as a String), an event that fires when that constructor has a new value and whatever widget your input function built for that constructor.
 
 For example:  You can use this to build a widget for any generic sum-type which switches to whatever input it is set to, allows user input and user choosing among constructors, but only rebuilds/switches the widget if the constructor changes.  This can be a significant reduction in rebuilding.
+
+___
+
+Note on running the demo:
+After running "cabal new-build all", find the executable (should be pretty clear from the last "Linking..." line of the build), run it and a browser shoudl pop up pointing at the exe.  If it crashes, you might need to comment out the line in app/Main.hs containing "spawnProcess" and then rebuild.  Now run the exe and open a browser window pointing at "localhost:XXX" where XXX is the port specified in your Main.hs, currently 3702.
