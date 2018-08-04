@@ -9,13 +9,14 @@ For example:  You can use this to build a widget for any generic sum-type which 
 ___
 Note on building:
 After `git clone`, to install this library and build the example:
-    git submodule init
-	git submodule update
-    nix-shell -A shells.ghc
-    cabal new-build all
-
+```
+git submodule init
+git submodule update
+nix-shell -A shells.ghc
+cabal new-build all
+```
 
 
 Note on running the demo:
 
-After running "cabal new-build all", find the executable (should be pretty clear from the last "Linking..." line of the build), run it and a browser should pop up pointing at the exe.  If it crashes, you might need to comment out the line in app/Main.hs containing "spawnProcess" and then rebuild.  Now run the exe and open a browser window pointing at "localhost:XXX" where XXX is the port specified in your Main.hs, currently 3702.
+After running `cabal new-build all`, find the executable (should be pretty clear from the last "Linking..." line of the build), run it and a browser should pop up pointing at the exe.  If it crashes, you might need to comment out the line in app/Main.hs containing `spawnProcess` and then rebuild.  Now run the exe and open a browser window pointing at "localhost:XXX" where XXX is the port specified in your Main.hs, currently 3702.
